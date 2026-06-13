@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Twitch Auto",
+  "version": "1.0.0",
+  "description": "Auto-claim points de chaine et drops Twitch, reload auto et aides de farming AFK. Usage local.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": ["storage", "notifications", "tabs"],
+  "host_permissions": ["https://www.twitch.tv/*"],
+  "background": {
+    "service_worker": "src/background/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.twitch.tv/*"],
+      "js": [
+        "src/shared/util.js",
+        "src/content/selectors.js",
+        "src/content/observer.js",
+        "src/content/log.js",
+        "src/content/modules/points.js",
+        "src/content/modules/drops.js",
+        "src/content/modules/reloader.js",
+        "src/content/modules/quality.js",
+        "src/content/modules/antiAfk.js",
+        "src/content/modules/mute.js",
+        "src/content/content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png" },
+    "default_title": "Twitch Auto"
+  }
+}
