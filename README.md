@@ -56,6 +56,10 @@ Le reste se teste manuellement dans Chrome (voir le plan d'implementation dans `
 
 - v1.0.0 : version initiale (points, drops, reload, quality, antiAfk, mute, notifications, popup).
 
+## Credits
+
+Icones : [Lucide](https://lucide.dev) / [Feather](https://feathericons.com) (licences ISC / MIT).
+
 ## Note CGU
 
 L'auto-claim de points/drops est dans une zone grise des CGU Twitch. Approche par clic DOM (risque faible), aucune garantie. Usage assume.

@@ -35,16 +35,17 @@ body {
   flex: 1; background: var(--surface); border-radius: 10px; padding: 12px;
   display: flex; flex-direction: column; gap: 2px;
 }
-.stat .ic { font-size: 16px; }
-.val { font-size: 22px; font-weight: 700; }
+.stat .ic { display: block; }
+.val { font-size: 22px; font-weight: 700; white-space: nowrap; }
 .cyan { color: var(--cyan); }
 .gold { color: var(--gold); }
 .last { font-size: 11px; color: var(--muted); }
 
 section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); margin: 0 16px 8px; letter-spacing: .04em; }
-.features { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 0 16px 12px; }
-.feature { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-.feature input { accent-color: var(--purple); width: 16px; height: 16px; }
+.features { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 0 16px 12px; }
+.feature { display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.feature input { accent-color: var(--purple); width: 15px; height: 15px; flex: 0 0 auto; }
+.feature .fic { color: var(--muted); flex: 0 0 auto; }
 
 .diag { color: #ff6b6b; font-size: 11px; margin: 0 16px; min-height: 14px; }
 

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { formatRelativeTime, shouldReload, makeThrottle } = require('../src/shared/util.js');
+const { formatRelativeTime, formatCompact, shouldReload, makeThrottle } = require('../src/shared/util.js');
 
 // formatRelativeTime(ts, now)
 assert.strictEqual(formatRelativeTime(null, 1000), 'jamais');
@@ -7,6 +7,15 @@ assert.strictEqual(formatRelativeTime(1000, 1000 + 30 * 1000), 'a l instant');
 assert.strictEqual(formatRelativeTime(0, 5 * 60 * 1000), 'il y a 5 min');
 assert.strictEqual(formatRelativeTime(0, 3 * 60 * 60 * 1000), 'il y a 3 h');
 assert.strictEqual(formatRelativeTime(0, 2 * 24 * 60 * 60 * 1000), 'il y a 2 j');
+
+// formatCompact(n)
+assert.strictEqual(formatCompact(10), '10');
+assert.strictEqual(formatCompact(100), '100');
+assert.strictEqual(formatCompact(999), '999');
+assert.strictEqual(formatCompact(1000), '1K');
+assert.strictEqual(formatCompact(5921), '5,9K');
+assert.strictEqual(formatCompact(10000), '10K');
+assert.strictEqual(formatCompact(1171270), '1,2M');
 
 // shouldReload(history, now, maxN, windowMs)
 assert.strictEqual(shouldReload([], 100, 5, 1000), true);

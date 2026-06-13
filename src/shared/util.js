@@ -20,6 +20,20 @@
     return recent.length < maxN;
   }
 
+  // Format compact d'un nombre : 10, 100, 999, 1K, 10K, 1,2M, 3,4B.
+  function formatCompact(n) {
+    n = Number(n) || 0;
+    const abs = Math.abs(n);
+    const units = [{ v: 1e9, s: 'B' }, { v: 1e6, s: 'M' }, { v: 1e3, s: 'K' }];
+    for (const u of units) {
+      if (abs >= u.v) {
+        const val = Math.round((n / u.v) * 10) / 10; // 1 decimale
+        return String(val).replace('.', ',') + u.s;
+      }
+    }
+    return String(n);
+  }
+
   // Throttle par cle : allow(key, now) renvoie true au plus une fois par fenetre.
   function makeThrottle(windowMs) {
     const seen = new Map();
@@ -30,7 +44,7 @@
     };
   }
 
-  const api = { formatRelativeTime, shouldReload, makeThrottle };
+  const api = { formatRelativeTime, formatCompact, shouldReload, makeThrottle };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TAUtil = api;
 })(typeof self !== 'undefined' ? self : this);
