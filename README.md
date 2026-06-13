@@ -13,6 +13,19 @@ Usage personnel, en local, non publie sur le Chrome Web Store.
 
 Apres une modif de code : revenir sur `chrome://extensions` et cliquer le bouton recharger de l'extension.
 
+## Mise a jour
+
+L'extension se met a jour EN PLACE. Grace a la cle d'ID epinglee dans le manifest, tu n'as JAMAIS besoin de la supprimer puis re-ajouter : les compteurs et l'historique sont conserves.
+
+1. Recuperer la derniere version :
+   - lancer `tools/update.sh` (fait le `git pull` et affiche la version), ou
+   - faire `git pull` dans le dossier de l'extension.
+2. Aller sur `chrome://extensions` et cliquer le bouton **recharger** sur la carte Twitch Auto.
+
+C'est tout : pas de "Charger l'extension non empaquetee" a refaire, pas de doublon, donnees gardees.
+
+> Charge l'extension depuis UN SEUL dossier (`C:\Mes Projets\PERSO\twitch-auto`). Charger une 2e copie depuis un autre chemin creerait un doublon ; de toute facon Chrome refusera la 2e copie a cause de la cle d'ID identique.
+
 ## Reglages
 
 Clic sur l'icone -> popup : interrupteur general, un toggle par fonction, compteurs points/drops.
