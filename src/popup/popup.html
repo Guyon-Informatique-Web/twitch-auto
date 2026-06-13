@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="head">
+    <img src="../../icons/icon-32.png" alt="" width="28" height="28">
+    <h1>Twitch Auto</h1>
+    <label class="switch" title="Activer / desactiver">
+      <input type="checkbox" id="master">
+      <span class="slider"></span>
+    </label>
+  </header>
+
+  <section class="stats">
+    <div class="stat">
+      <span class="ic">🪙</span>
+      <span class="val cyan" id="points-value">0</span>
+      <span class="last" id="points-last">jamais</span>
+    </div>
+    <div class="stat">
+      <span class="ic">🎁</span>
+      <span class="val gold" id="drops-value">0</span>
+      <span class="last" id="drops-last">jamais</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Reglages</h2>
+    <div id="features" class="features"></div>
+  </section>
+
+  <p id="diag" class="diag"></p>
+
+  <footer class="foot">
+    <button id="open-inventory" class="btn">Ouvrir mon inventaire de drops</button>
+    <div class="foot-row">
+      <span id="version">v1.0.0</span>
+      <button id="reset" class="link">reinitialiser compteurs</button>
+    </div>
+  </footer>
+
+  <script src="../shared/util.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
