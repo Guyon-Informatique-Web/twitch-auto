@@ -1400,7 +1400,7 @@ L'auto-claim de points/drops est dans une zone grise des CGU Twitch. Approche pa
 
 - [ ] **Step 2: Vérifier (manuel)**
 
-Run: `cd twitch-auto && grep -c "—" README.md`
+Run: `cd twitch-auto && grep -cP "\x{2014}|\x{2013}" README.md`
 Expected: `0` (aucun tiret long).
 
 - [ ] **Step 3: Commit**
@@ -1419,7 +1419,7 @@ git commit -m "docs(twitch-auto): README (install, maintenance selecteurs, diagn
 
 - [ ] **Step 1: Vérifier qu'il n'y a aucun tiret long dans le projet**
 
-Run: `cd twitch-auto && grep -rn "—\|–" . --include="*.js" --include="*.json" --include="*.md" --include="*.css" --include="*.html" | grep -v node_modules; echo "exit:$?"`
+Run: `cd twitch-auto && grep -rnP "\x{2014}|\x{2013}" . --include="*.js" --include="*.json" --include="*.md" --include="*.css" --include="*.html" | grep -v node_modules; echo "exit:$?"`
 Expected: aucune ligne affichée.
 
 - [ ] **Step 2: Re-lancer les tests purs**

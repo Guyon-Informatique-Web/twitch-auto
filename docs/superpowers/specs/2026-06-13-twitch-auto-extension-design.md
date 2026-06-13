@@ -48,7 +48,7 @@ L'extension doit :
 
 - **Manifest V3** obligatoire (Chrome actuel).
 - **Aucun build / aucune dépendance npm** : que du HTML/CSS/JS vanilla, chargeable tel quel via "Charger l'extension non empaquetée". (Évite aussi le souci `npm install` sur `/mnt/c/`.)
-- **Typographie** : jamais de tiret long (`—`/`–`), uniquement le tiret simple. Vaut pour code, commentaires, UI, commits.
+- **Typographie** : jamais de tiret long (cadratin U+2014 ou demi-cadratin U+2013), uniquement le tiret simple. Vaut pour code, commentaires, UI, commits.
 - **Tests navigateur** : Google Chrome stable uniquement (jamais Chromium).
 - Code **factorisé et commenté** (préférence Valentin).
 
@@ -198,7 +198,7 @@ Thème sombre, accents violet Twitch. Inspiré de l'ancienne extension, épuré.
 
 ```
 ┌────────────────────────────────────────────┐
-│ [logo]  Twitch Auto              [ On ●——]  │
+│ [logo]  Twitch Auto              [ On ●-- ] │
 ├────────────────────────────────────────────┤
 │  Réclamé via l'extension :                  │
 │   🪙  1 171 270        dernier : il y a 3 j │  (cyan)
