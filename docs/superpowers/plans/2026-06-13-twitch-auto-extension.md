@@ -223,7 +223,7 @@ Expected: FAIL (`Cannot find module '../src/shared/util.js'`).
 (function (root) {
   // Temps relatif en francais a partir d'un timestamp (ms) et de "maintenant".
   function formatRelativeTime(ts, now) {
-    if (!ts) return 'jamais';
+    if (ts == null) return 'jamais';
     const s = Math.max(0, Math.floor((now - ts) / 1000));
     if (s < 60) return 'a l instant';
     const m = Math.floor(s / 60);
@@ -244,8 +244,7 @@ Expected: FAIL (`Cannot find module '../src/shared/util.js'`).
   function makeThrottle(windowMs) {
     const seen = new Map();
     return function allow(key, now) {
-      const last = seen.get(key) || 0;
-      if (now - last < windowMs) return false;
+      if (seen.has(key) && now - seen.get(key) < windowMs) return false;
       seen.set(key, now);
       return true;
     };
