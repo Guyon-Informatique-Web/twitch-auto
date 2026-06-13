@@ -1266,7 +1266,7 @@ async function load() {
   document.getElementById('drops-last').textContent = TAUtil.formatRelativeTime(stats.lastDropsClaim, now);
 
   const wrap = document.getElementById('features');
-  wrap.innerHTML = '';
+  wrap.replaceChildren();
   FEATURES.forEach(([key, label]) => {
     const row = document.createElement('label');
     row.className = 'feature';
