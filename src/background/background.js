@@ -43,10 +43,18 @@ async function updateBadge() {
   chrome.action.setBadgeBackgroundColor({ color: on ? '#00b86b' : '#555555' });
 }
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (!msg || !msg.type) return;
-  if (msg.type === 'claim') handleClaim(msg);
-  else if (msg.type === 'error') handleError(msg, sender);
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || !msg.type) return false;
+  // On renvoie true et on garde le canal ouvert jusqu'a la fin de l'ecriture,
+  // sinon le service worker peut s'endormir avant que chrome.storage.set soit termine.
+  if (msg.type === 'claim') {
+    handleClaim(msg).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+  if (msg.type === 'error') {
+    handleError(msg, sender).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true;
+  }
   return false;
 });
 

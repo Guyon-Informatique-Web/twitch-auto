@@ -17,8 +17,9 @@ TA.selectors = {
     '[data-test-selector="DropsCampaignInProgressRewardPresentation-claim-button"]',
     'button[data-a-target="drops-claim-button"]'
   ],
-  // Indices texte pour la page inventaire (fallback)
-  dropClaimTextHints: ['claim now', 'claim', 'réclamer'],
+  // Indices texte pour reclamer un drop (popup chest + page inventaire).
+  // FR Twitch utilise "Obtenir" pour le bouton vert de reclamation.
+  dropClaimTextHints: ['obtenir', 'réclamer', 'reclamer', 'claim now', 'claim'],
 
   // Conteneur d'overlay d'erreur du player
   playerOverlay: [

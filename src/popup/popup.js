@@ -80,4 +80,9 @@ document.getElementById('reset').addEventListener('click', async () => {
 });
 document.getElementById('version').textContent = 'v' + chrome.runtime.getManifest().version;
 
+// Rafraichit le popup en direct quand les compteurs/reglages changent (popup ouvert).
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && (changes.stats || changes.settings || changes.lastError)) load();
+});
+
 load();

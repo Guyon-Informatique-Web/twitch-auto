@@ -7,8 +7,12 @@ TA.modules.drops = (function () {
 
   function tick() {
     try {
+      // Selecteurs precis partout ; recherche par texte UNIQUEMENT sur la page
+      // inventaire (contexte sur : pas de bouton "Obtenir Turbo"/pub a cliquer par erreur).
       let btn = TA.dom.findFirst(TA.selectors.dropClaim);
-      if (!btn) btn = TA.dom.findByText('button', TA.selectors.dropClaimTextHints);
+      if (!btn && location.pathname.startsWith('/drops')) {
+        btn = TA.dom.findByText('button, [role="button"], a', TA.selectors.dropClaimTextHints);
+      }
       if (btn && !claimed.has(btn) && TA.dom.click(btn)) {
         claimed.add(btn);
         TA.report('drop', {});
