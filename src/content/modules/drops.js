@@ -21,6 +21,17 @@ TA.modules.drops = (function () {
     return btn;
   }
 
+  // Remonte depuis le bouton pour trouver le nom du drop (alt de l'image de la carte).
+  function getDropName(btn) {
+    let el = btn;
+    for (let i = 0; i < 6 && el; i++) {
+      const img = el.querySelector ? el.querySelector('img[alt]') : null;
+      if (img && img.alt && img.alt.trim()) return img.alt.trim();
+      el = el.parentElement;
+    }
+    return '';
+  }
+
   function tick() {
     try {
       const now = Date.now();
@@ -34,8 +45,9 @@ TA.modules.drops = (function () {
       lastClick = now;
       recent = recent.filter((t) => now - t < BURST_WINDOW);
       recent.push(now);
-      TA.report('drop', {});
-      TA.log.info('drops', 'drop reclame');
+      const name = getDropName(btn);
+      TA.report('drop', { name });
+      TA.log.info('drops', name ? `drop reclame : ${name}` : 'drop reclame');
 
       if (recent.length >= BURST_MAX) {
         backoffUntil = now + BACKOFF;

@@ -58,10 +58,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return false;
 });
 
+const HISTORY_MAX = 200; // nombre max d'evenements conserves
+
 async function handleClaim(msg) {
-  const data = await chrome.storage.local.get(['stats', 'settings']);
+  const data = await chrome.storage.local.get(['stats', 'settings', 'history']);
   const s = { ...DEFAULT_STATS, ...(data.stats || {}) };
   const settings = data.settings || {};
+  const history = Array.isArray(data.history) ? data.history : [];
   const now = Date.now();
 
   if (msg.kind === 'points') {
@@ -69,16 +72,21 @@ async function handleClaim(msg) {
     s.pointsClaimed += 1;
     s.pointsValue += (msg.amount || 0);
     s.lastPointsClaim = now;
-    if (settings.notifications) {
-      const crossed = Math.floor(s.pointsValue / POINTS_NOTIFY_STEP) > Math.floor(before / POINTS_NOTIFY_STEP);
-      if (crossed) notify('Points reclames', `${s.pointsValue} points cumules via Twitch Auto`);
+    // Historique points : seulement aux paliers (evite de noyer la liste, ~1 coffre/15 min).
+    const crossed = Math.floor(s.pointsValue / POINTS_NOTIFY_STEP) > Math.floor(before / POINTS_NOTIFY_STEP);
+    if (crossed) {
+      history.push({ type: 'points', amount: s.pointsValue, ts: now });
+      if (settings.notifications) notify('Points reclames', `${s.pointsValue} points cumules via Twitch Auto`);
     }
   } else if (msg.kind === 'drop') {
     s.dropsClaimed += 1;
     s.lastDropsClaim = now;
+    history.push({ type: 'drop', name: msg.name || '', ts: now });
     if (settings.notifications) notify('Drop reclame', msg.name ? `Drop: ${msg.name}` : 'Un drop a ete reclame');
   }
-  await chrome.storage.local.set({ stats: s });
+
+  if (history.length > HISTORY_MAX) history.splice(0, history.length - HISTORY_MAX);
+  await chrome.storage.local.set({ stats: s, history });
 }
 
 function notify(title, message) {

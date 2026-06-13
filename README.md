@@ -54,6 +54,7 @@ Le reste se teste manuellement dans Chrome (voir le plan d'implementation dans `
 
 ## Changelog
 
+- v1.1.0 : historique des drops (avec nom) et paliers de points dans le popup ; ID d'extension epingle (cle dans le manifest) pour que le stockage survive a un deplacement du dossier.
 - v1.0.0 : version initiale (points, drops, reload, quality, antiAfk, mute, notifications, popup).
 
 ## Credits
