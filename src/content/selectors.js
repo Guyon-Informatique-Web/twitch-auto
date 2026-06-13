@@ -3,13 +3,15 @@
 // Regle : data-test-selector / data-a-target / aria-label / texte. JAMAIS les classes CSS aleatoires.
 window.TA = window.TA || {};
 TA.selectors = {
-  // Coffre bonus de points de chaine (dans le chat)
+  // Coffre bonus de points de chaine (dans le chat).
+  // FR confirme : <button aria-label="Récupérer un bonus"> contenant .claimable-bonus__icon
   pointsClaim: [
     '[data-test-selector="community-points-claim"]',
-    '.claimable-bonus button',
-    '.claimable-bonus',
+    'button[aria-label*="Récupérer un bonus" i]',
+    'button[aria-label*="bonus" i]',
     'button[aria-label*="Claim" i]',
-    'button[aria-label*="Réclamer" i]'
+    'button[aria-label*="Réclamer" i]',
+    '.claimable-bonus__icon'
   ],
 
   // Bouton de reclamation d'un drop
@@ -18,8 +20,9 @@ TA.selectors = {
     'button[data-a-target="drops-claim-button"]'
   ],
   // Indices texte pour reclamer un drop TERMINE (page inventaire).
-  // NB : "Obtenir" (avec fleche) = lien vers la campagne, PAS une reclamation -> exclu.
-  dropClaimTextHints: ['réclamer', 'reclamer', 'claim now', 'claim'],
+  // FR confirme : le bouton de reclamation est "En profiter".
+  // NB : "Obtenir" = lien <a> vers la campagne, PAS une reclamation -> exclu.
+  dropClaimTextHints: ['en profiter', 'réclamer', 'reclamer', 'claim now', 'claim'],
 
   // Conteneur d'overlay d'erreur du player
   playerOverlay: [
