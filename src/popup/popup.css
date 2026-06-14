@@ -52,6 +52,8 @@ section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); ma
   background: #2a1a4a; border: 1px solid var(--purple); color: #d8c4ff;
   display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: center;
 }
+/* Sans cette regle, le display:flex ci-dessus ecrase l'attribut [hidden] et la banniere reste visible. */
+.update-banner[hidden] { display: none; }
 .update-banner #update-text { font-size: 12px; font-weight: 600; }
 .update-dl {
   padding: 8px; border: 0; border-radius: 6px; background: var(--purple);

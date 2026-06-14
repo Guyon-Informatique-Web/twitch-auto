@@ -86,6 +86,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.3.4 : corrige la banniere de MAJ qui restait affichee en permanence (le display:flex du CSS ecrasait l'attribut hidden). Combine avec v1.3.3, la banniere s'affiche seulement quand une version plus recente existe.
 - v1.3.3 : la banniere de mise a jour disparait des qu'on est sur la derniere version (comparaison avec la version reellement installee, au lieu d'un flag stocke).
 - v1.3.2 : le mute des onglets en arriere-plan se fait au niveau de l'onglet (chrome.tabs muted) au lieu de l'element video, ce qui evite de mettre le stream en pause (politique autoplay du navigateur).
 - v1.3.1 : bouton "Telecharger la MAJ" dans le popup (telecharge le ZIP de la derniere release en 1 clic ; reste a dezipper + recharger).
