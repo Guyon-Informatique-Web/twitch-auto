@@ -36,16 +36,20 @@ TA.modules.drops = (function () {
   const NAME_NOISE = /^(en profiter|obtenu|claim now|claim|claimed|r[eé]clamer|\d+\s*%|termin[eé]|completed|in progress|en cours)$/i;
 
   function getDropName(btn) {
-    let card = btn;
-    for (let i = 0; i < 7 && card.parentElement; i++) {
-      card = card.parentElement;
-      if (card.querySelector && card.querySelector('img')) break;
-    }
-    if (!card.querySelectorAll) return '';
-    const els = card.querySelectorAll('p[class*="CoreText"], h1, h2, h3, h4, h5, h6, [role="heading"]');
-    for (const el of els) {
-      const t = (el.textContent || '').trim();
-      if (t && t.length >= 3 && !NAME_NOISE.test(t) && !/ic[oô]ne|image/i.test(t)) return t;
+    // On remonte depuis le bouton ; a chaque niveau on cherche un libelle de nom.
+    // Des qu'un conteneur englobe un nom valide, on le retourne (= la carte du drop).
+    let el = btn;
+    for (let depth = 0; depth < 8 && el; depth++) {
+      if (el.querySelectorAll) {
+        const cands = el.querySelectorAll('p[class*="CoreText"], span[class*="CoreText"], h1, h2, h3, h4, h5, h6, [role="heading"]');
+        for (const c of cands) {
+          const t = (c.textContent || '').trim();
+          if (t && t.length >= 3 && t.length <= 80 && !NAME_NOISE.test(t) && !/ic[oô]ne|image/i.test(t)) {
+            return t;
+          }
+        }
+      }
+      el = el.parentElement;
     }
     return '';
   }
