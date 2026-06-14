@@ -86,6 +86,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.3.2 : le mute des onglets en arriere-plan se fait au niveau de l'onglet (chrome.tabs muted) au lieu de l'element video, ce qui evite de mettre le stream en pause (politique autoplay du navigateur).
 - v1.3.1 : bouton "Telecharger la MAJ" dans le popup (telecharge le ZIP de la derniere release en 1 clic ; reste a dezipper + recharger).
 - v1.3.0 : verificateur de mise a jour integre (compare la derniere release GitHub a la version installee) avec notification + banniere dans le popup. Depot rendu public.
 - v1.2.3 : detection du nom de drop plus robuste (recherche a chaque niveau en remontant depuis le bouton).

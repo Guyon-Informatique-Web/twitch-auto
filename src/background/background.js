@@ -85,6 +85,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     handleError(msg, sender).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
     return true;
   }
+  if (msg.type === 'mute') {
+    // Mute/unmute au niveau de l'onglet (n'interrompt pas la lecture, contrairement a v.muted).
+    if (sender.tab && sender.tab.id != null) {
+      chrome.tabs.update(sender.tab.id, { muted: !!msg.hidden }).catch(() => {});
+    }
+    return false;
+  }
   return false;
 });
 
