@@ -94,8 +94,11 @@ async function load() {
     await chrome.storage.local.get(['settings', 'stats', 'history', 'lastError', 'update']);
   const now = Date.now();
 
+  // On affiche la banniere seulement si la version dispo est STRICTEMENT plus recente
+  // que la version installee. Ainsi elle disparait des qu'on est a jour (flag stocke ignore).
+  const installed = chrome.runtime.getManifest().version;
   const banner = document.getElementById('update-banner');
-  if (upd && upd.available) {
+  if (upd && upd.version && TAUtil.compareVersions(upd.version, installed) > 0) {
     banner.hidden = false;
     document.getElementById('update-text').textContent = `Nouvelle version v${upd.version} dispo`;
     lastUpdate = upd;
