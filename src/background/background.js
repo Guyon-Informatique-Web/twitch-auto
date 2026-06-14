@@ -21,6 +21,7 @@ const DEFAULT_STATS = {
 };
 const POINTS_NOTIFY_STEP = 5000;            // notif points tous les 5000 pts cumules
 const errorThrottle = TAUtil.makeThrottle(60 * 60 * 1000); // 1 envoi / erreur / heure
+const UPDATE_API = 'https://api.github.com/repos/Guyon-Informatique-Web/twitch-auto/releases/latest';
 
 // Initialisation des reglages/stats sans ecraser l'existant.
 chrome.runtime.onInstalled.addListener(async () => {
@@ -30,7 +31,12 @@ chrome.runtime.onInstalled.addListener(async () => {
     stats: { ...DEFAULT_STATS, ...(cur.stats || {}) }
   });
   updateBadge();
+  checkUpdate();
 });
+
+chrome.runtime.onStartup.addListener(() => { checkUpdate(); });
+chrome.alarms.create('checkUpdate', { periodInMinutes: 360 }); // verifie les MAJ toutes les 6h
+chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'checkUpdate') checkUpdate(); });
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.settings) updateBadge();
@@ -41,6 +47,28 @@ async function updateBadge() {
   const on = settings ? settings.enabled : true;
   chrome.action.setBadgeText({ text: on ? 'on' : 'off' });
   chrome.action.setBadgeBackgroundColor({ color: on ? '#00b86b' : '#555555' });
+}
+
+// Verifie la derniere release publiee sur GitHub et signale si une MAJ existe.
+async function checkUpdate() {
+  try {
+    const res = await fetch(UPDATE_API, { cache: 'no-store', headers: { Accept: 'application/vnd.github+json' } });
+    if (!res.ok) return;
+    const data = await res.json();
+    const remote = String(data.tag_name || '').replace(/^v/, '');
+    if (!remote) return;
+    const current = chrome.runtime.getManifest().version;
+    const prev = (await chrome.storage.local.get('update')).update;
+    if (TAUtil.compareVersions(remote, current) > 0) {
+      await chrome.storage.local.set({ update: { available: true, version: remote } });
+      // Notifie une seule fois par nouvelle version.
+      if (!prev || prev.version !== remote) {
+        notify('Mise a jour disponible', `Twitch Auto v${remote} est disponible. Ouvre le popup pour la recuperer.`);
+      }
+    } else {
+      await chrome.storage.local.set({ update: { available: false, version: current } });
+    }
+  } catch (e) { /* hors ligne / GitHub injoignable */ }
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

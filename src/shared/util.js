@@ -44,7 +44,20 @@
     };
   }
 
-  const api = { formatRelativeTime, formatCompact, shouldReload, makeThrottle };
+  // Compare deux versions "x.y.z" : 1 si a > b, -1 si a < b, 0 si egales.
+  function compareVersions(a, b) {
+    const pa = String(a).split('.').map(Number);
+    const pb = String(b).split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const x = pa[i] || 0;
+      const y = pb[i] || 0;
+      if (x > y) return 1;
+      if (x < y) return -1;
+    }
+    return 0;
+  }
+
+  const api = { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TAUtil = api;
 })(typeof self !== 'undefined' ? self : this);

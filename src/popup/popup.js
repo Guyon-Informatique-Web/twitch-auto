@@ -88,9 +88,17 @@ function renderHistory(history, now) {
 }
 
 async function load() {
-  const { settings = {}, stats = {}, history = [], lastError } =
-    await chrome.storage.local.get(['settings', 'stats', 'history', 'lastError']);
+  const { settings = {}, stats = {}, history = [], lastError, update: upd } =
+    await chrome.storage.local.get(['settings', 'stats', 'history', 'lastError', 'update']);
   const now = Date.now();
+
+  const banner = document.getElementById('update-banner');
+  if (upd && upd.available) {
+    banner.hidden = false;
+    banner.textContent = `Nouvelle version v${upd.version} dispo - mettre a jour`;
+  } else {
+    banner.hidden = true;
+  }
 
   document.getElementById('master').checked = settings.enabled !== false;
   document.body.classList.toggle('off', settings.enabled === false);
@@ -126,7 +134,7 @@ document.getElementById('version').textContent = 'v' + chrome.runtime.getManifes
 
 // Rafraichit le popup en direct quand compteurs/reglages/historique changent.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && (changes.stats || changes.settings || changes.history || changes.lastError)) load();
+  if (area === 'local' && (changes.stats || changes.settings || changes.history || changes.lastError || changes.update)) load();
 });
 
 load();

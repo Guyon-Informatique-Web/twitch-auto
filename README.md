@@ -75,8 +75,18 @@ for (const k of ['pointsClaim', 'dropClaim', 'playerOverlay', 'matureAccept']) {
 Fonctions pures : `node test/util.test.js` (doit afficher `OK util`).
 Le reste se teste manuellement dans Chrome (voir le plan d'implementation dans `docs/superpowers/plans/`).
 
+## Partage avec des amis
+
+Le depot est public. Pour installer :
+
+1. Telecharger le ZIP depuis la derniere release : https://github.com/Guyon-Informatique-Web/twitch-auto/releases/latest (bouton "Source code (zip)" ou l'asset joint).
+2. Decompresser, puis `chrome://extensions` -> Mode developpeur -> "Charger l'extension non empaquetee" -> choisir le dossier.
+
+L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe une nouvelle release sur GitHub. Si oui : une notification + une banniere "nouvelle version dispo" dans le popup. Il suffit alors de retelecharger le ZIP de la derniere release, remplacer le dossier et recharger l'extension.
+
 ## Changelog
 
+- v1.3.0 : verificateur de mise a jour integre (compare la derniere release GitHub a la version installee) avec notification + banniere dans le popup. Depot rendu public.
 - v1.2.3 : detection du nom de drop plus robuste (recherche a chaque niveau en remontant depuis le bouton).
 - v1.2.2 : nom du drop lu depuis le bon paragraphe (CoreText) -> vrais noms dans l'historique.
 - v1.2.1 : reclame TOUS les drops disponibles (plus un seul) ; auto-refresh de l'inventaire desormais aussi au premier plan ; meilleure detection du nom du drop pour l'historique.

@@ -47,6 +47,13 @@ section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); ma
 .feature input { accent-color: var(--purple); width: 15px; height: 15px; flex: 0 0 auto; }
 .feature .fic { color: var(--muted); flex: 0 0 auto; }
 
+.update-banner {
+  display: block; margin: 0 16px 12px; padding: 8px 10px; border-radius: 8px;
+  background: #2a1a4a; border: 1px solid var(--purple); color: #d8c4ff;
+  font-size: 12px; font-weight: 600; text-align: center; text-decoration: none;
+}
+.update-banner:hover { background: #36215e; }
+
 .history { max-height: 138px; overflow-y: auto; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px; }
 .hist-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .hist-row .fic { flex: 0 0 auto; }
