@@ -22,6 +22,8 @@ const FEATURES = [
   ['notifications', 'Notifications', ICONS.bell]
 ];
 const EMPTY_STATS = { pointsClaimed: 0, pointsValue: 0, lastPointsClaim: null, dropsClaimed: 0, lastDropsClaim: null };
+const RELEASES_URL = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/latest';
+let lastUpdate = null; // derniere info de MAJ connue (pour le bouton telecharger)
 
 // Construit une icone SVG (sans innerHTML). extraClass : classe de couleur optionnelle.
 function makeIcon(inner, extraClass) {
@@ -95,9 +97,11 @@ async function load() {
   const banner = document.getElementById('update-banner');
   if (upd && upd.available) {
     banner.hidden = false;
-    banner.textContent = `Nouvelle version v${upd.version} dispo - mettre a jour`;
+    document.getElementById('update-text').textContent = `Nouvelle version v${upd.version} dispo`;
+    lastUpdate = upd;
   } else {
     banner.hidden = true;
+    lastUpdate = null;
   }
 
   document.getElementById('master').checked = settings.enabled !== false;
@@ -122,6 +126,16 @@ async function update(key, val) {
   await chrome.storage.local.set({ settings });
   load();
 }
+
+document.getElementById('update-dl').addEventListener('click', () => {
+  if (lastUpdate && lastUpdate.url) {
+    chrome.downloads.download({ url: lastUpdate.url });
+    document.getElementById('update-hint').textContent =
+      "Telecharge ! Dezippe par-dessus ton dossier, puis recharge l'extension.";
+  } else {
+    chrome.tabs.create({ url: RELEASES_URL });
+  }
+});
 
 document.getElementById('master').addEventListener('change', (e) => update('enabled', e.target.checked));
 document.getElementById('open-inventory').addEventListener('click', () =>

@@ -60,7 +60,9 @@ async function checkUpdate() {
     const current = chrome.runtime.getManifest().version;
     const prev = (await chrome.storage.local.get('update')).update;
     if (TAUtil.compareVersions(remote, current) > 0) {
-      await chrome.storage.local.set({ update: { available: true, version: remote } });
+      const asset = (data.assets || []).find((a) => a.name && a.name.toLowerCase().endsWith('.zip'));
+      const url = asset ? asset.browser_download_url : '';
+      await chrome.storage.local.set({ update: { available: true, version: remote, url } });
       // Notifie une seule fois par nouvelle version.
       if (!prev || prev.version !== remote) {
         notify('Mise a jour disponible', `Twitch Auto v${remote} est disponible. Ouvre le popup pour la recuperer.`);

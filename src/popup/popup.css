@@ -48,11 +48,17 @@ section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); ma
 .feature .fic { color: var(--muted); flex: 0 0 auto; }
 
 .update-banner {
-  display: block; margin: 0 16px 12px; padding: 8px 10px; border-radius: 8px;
+  margin: 0 16px 12px; padding: 10px; border-radius: 8px;
   background: #2a1a4a; border: 1px solid var(--purple); color: #d8c4ff;
-  font-size: 12px; font-weight: 600; text-align: center; text-decoration: none;
+  display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: center;
 }
-.update-banner:hover { background: #36215e; }
+.update-banner #update-text { font-size: 12px; font-weight: 600; }
+.update-dl {
+  padding: 8px; border: 0; border-radius: 6px; background: var(--purple);
+  color: #fff; font-weight: 600; cursor: pointer; font-size: 12px;
+}
+.update-dl:hover { background: #772ce8; }
+.update-hint { font-size: 11px; color: var(--muted); }
 
 .history { max-height: 138px; overflow-y: auto; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px; }
 .hist-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
