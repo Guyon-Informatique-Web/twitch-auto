@@ -39,6 +39,16 @@ chrome.storage.local.get('settings', ({ settings }) =>
 
 Penser a ajouter le domaine de l'endpoint dans `host_permissions` du `manifest.json`.
 
+## Drops : farming hands-free
+
+La reclamation des drops se fait UNIQUEMENT via la page inventaire (`twitch.tv/drops/inventory`), pas depuis le stream. C'est volontaire et c'est la methode utilisee par tous les outils du genre :
+
+- Le bouton "claim" affiche en bas du player en live est instable/cosmetique (il redirige souvent vers l'inventaire) et Twitch change ce DOM en permanence.
+- Sur une page de stream, beaucoup de boutons ressemblent a "Claim / En profiter / Obtenir" (sub gratuit, Prime, Turbo, recompense de points) : cliquer a l'aveugle risquerait de cliquer le mauvais.
+- Seul l'inventaire a un selecteur stable : `DropsCampaignInProgressRewardPresentation-claim-button` et le bouton texte "En profiter".
+
+**Config recommandee** : garde un onglet ouvert sur `twitch.tv/drops/inventory` **en arriere-plan** (pas l'onglet actif). L'extension le recharge automatiquement toutes les 5 min et reclame les drops termines, sans intervention. Tu regardes tes streams dans les autres onglets.
+
 ## Maintenance des selecteurs (quand Twitch casse quelque chose)
 
 Tout est dans **`src/content/selectors.js`**. Procedure :
@@ -67,6 +77,7 @@ Le reste se teste manuellement dans Chrome (voir le plan d'implementation dans `
 
 ## Changelog
 
+- v1.2.0 : auto-refresh de l'inventaire en arriere-plan (toutes les 5 min) pour reclamer les drops termines sans intervention. La reclamation reste via l'inventaire (le claim depuis le stream live n'est pas fiable).
 - v1.1.0 : historique des drops (avec nom) et paliers de points dans le popup ; ID d'extension epingle (cle dans le manifest) pour que le stockage survive a un deplacement du dossier.
 - v1.0.0 : version initiale (points, drops, reload, quality, antiAfk, mute, notifications, popup).
 
