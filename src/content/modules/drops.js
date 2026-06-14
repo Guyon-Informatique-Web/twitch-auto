@@ -30,19 +30,23 @@ TA.modules.drops = (function () {
     return out;
   }
 
-  // Remonte vers la carte du drop puis cherche le NOM (un titre, pas l'alt generique d'une icone).
+  // Le nom du drop est un <p class="CoreText-sc-..."> dans la carte du drop.
+  // On remonte vers la carte (1er ancetre avec une image) puis on prend le 1er
+  // paragraphe CoreText qui n'est pas du bruit (statut, pourcentage, "En profiter"...).
+  const NAME_NOISE = /^(en profiter|obtenu|claim now|claim|claimed|r[eé]clamer|\d+\s*%|termin[eé]|completed|in progress|en cours)$/i;
+
   function getDropName(btn) {
     let card = btn;
     for (let i = 0; i < 7 && card.parentElement; i++) {
       card = card.parentElement;
       if (card.querySelector && card.querySelector('img')) break;
     }
-    const cand = card.querySelector
-      ? card.querySelector('[data-a-target*="name" i], h1, h2, h3, h4, h5, h6, [role="heading"]')
-      : null;
-    const name = cand && cand.textContent ? cand.textContent.trim() : '';
-    // Ignore les libelles generiques (alt d'icone, pourcentages, etc.).
-    if (name && !/ic[oô]ne|image|r[eé]compense|reward|^\d+\s*%$/i.test(name)) return name;
+    if (!card.querySelectorAll) return '';
+    const els = card.querySelectorAll('p[class*="CoreText"], h1, h2, h3, h4, h5, h6, [role="heading"]');
+    for (const el of els) {
+      const t = (el.textContent || '').trim();
+      if (t && t.length >= 3 && !NAME_NOISE.test(t) && !/ic[oô]ne|image/i.test(t)) return t;
+    }
     return '';
   }
 

@@ -77,6 +77,7 @@ Le reste se teste manuellement dans Chrome (voir le plan d'implementation dans `
 
 ## Changelog
 
+- v1.2.2 : nom du drop lu depuis le bon paragraphe (CoreText) -> vrais noms dans l'historique.
 - v1.2.1 : reclame TOUS les drops disponibles (plus un seul) ; auto-refresh de l'inventaire desormais aussi au premier plan ; meilleure detection du nom du drop pour l'historique.
 - v1.2.0 : auto-refresh de l'inventaire en arriere-plan (toutes les 5 min) pour reclamer les drops termines sans intervention. La reclamation reste via l'inventaire (le claim depuis le stream live n'est pas fiable).
 - v1.1.0 : historique des drops (avec nom) et paliers de points dans le popup ; ID d'extension epingle (cle dans le manifest) pour que le stockage survive a un deplacement du dossier.
