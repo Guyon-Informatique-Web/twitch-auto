@@ -12,6 +12,8 @@ TA.modules.drops = (function () {
   let lastClick = 0;
   let recent = [];
   let backoffUntil = 0;
+  let refreshTimer = null;
+  const INVENTORY_REFRESH = 5 * 60 * 1000; // recharge l'inventaire en fond (Twitch ne le met pas a jour en direct)
 
   function findButton() {
     let btn = TA.dom.findFirst(TA.selectors.dropClaim);
@@ -60,7 +62,17 @@ TA.modules.drops = (function () {
   return {
     id: 'drops',
     settingKey: 'drops',
-    start() { unsub = TA.dom.subscribe(tick); },
-    stop() { if (unsub) { unsub(); unsub = null; } }
+    start() {
+      unsub = TA.dom.subscribe(tick);
+      // L'inventaire ne se met pas a jour en direct : on le recharge periodiquement
+      // quand l'onglet est en arriere-plan, pour reclamer les drops termines sans intervention.
+      if (location.pathname.startsWith('/drops')) {
+        refreshTimer = setInterval(() => { if (document.hidden) location.reload(); }, INVENTORY_REFRESH);
+      }
+    },
+    stop() {
+      if (unsub) { unsub(); unsub = null; }
+      if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+    }
   };
 })();
