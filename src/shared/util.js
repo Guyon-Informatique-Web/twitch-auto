@@ -26,7 +26,8 @@
     const abs = Math.abs(n);
     const units = [{ v: 1e9, s: 'B' }, { v: 1e6, s: 'M' }, { v: 1e3, s: 'K' }];
     for (const u of units) {
-      if (abs >= u.v) {
+      // seuil un poil sous l'unite pour eviter le debordement d'arrondi (999 999 -> "1M", pas "1000K")
+      if (abs >= u.v * 0.9995) {
         const val = Math.round((n / u.v) * 10) / 10; // 1 decimale
         return String(val).replace('.', ',') + u.s;
       }

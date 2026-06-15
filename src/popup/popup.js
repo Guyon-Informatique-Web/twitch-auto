@@ -1,4 +1,4 @@
-// Pilote du popup : compteurs, reglages, historique, reset, inventaire.
+// Pilote du popup : compteurs, reglages, historique, reset, inventaire, MAJ.
 // Icones : jeu Lucide / Feather (licence ISC/MIT).
 
 const ICONS = {
@@ -11,18 +11,19 @@ const ICONS = {
   bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
 };
 
-// [cle de reglage, libelle, icone]
+// [cle de reglage, libelle, icone, description (infobulle)]
 const FEATURES = [
-  ['points', 'Points', ICONS.gem],
-  ['drops', 'Drops', ICONS.gift],
-  ['reload', 'Reload auto', ICONS.reload],
-  ['lowQuality', 'Qualite mini', ICONS.quality],
-  ['antiAfk', 'Anti-AFK', ICONS.eye],
-  ['muteBackground', 'Mute fond', ICONS.mute],
-  ['notifications', 'Notifications', ICONS.bell]
+  ['points', 'Points', ICONS.gem, 'Reclame les coffres bonus de points de chaine.'],
+  ['drops', 'Drops', ICONS.gift, 'Reclame les drops termines (inventaire + bandeau sur le stream).'],
+  ['reload', 'Reload auto', ICONS.reload, 'Recharge le player quand il affiche une erreur.'],
+  ['lowQuality', 'Qualite mini', ICONS.quality, 'Passe la video en 160p sur les onglets en arriere-plan.'],
+  ['antiAfk', 'Anti-AFK', ICONS.eye, 'Clique les fenetres "Toujours la ?" et le contenu sensible.'],
+  ['muteBackground', 'Mute fond', ICONS.mute, 'Coupe le son des onglets en arriere-plan.'],
+  ['notifications', 'Notifications', ICONS.bell, 'Notification desktop sur drop / palier de points.']
 ];
 const EMPTY_STATS = { pointsClaimed: 0, pointsValue: 0, lastPointsClaim: null, dropsClaimed: 0, lastDropsClaim: null };
 const RELEASES_URL = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/latest';
+const DL_PREFIX = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/download/';
 let lastUpdate = null; // derniere info de MAJ connue (pour le bouton telecharger)
 
 // Construit une icone SVG (sans innerHTML). extraClass : classe de couleur optionnelle.
@@ -47,12 +48,16 @@ function makeIcon(inner, extraClass) {
 function renderFeatures(settings) {
   const wrap = document.getElementById('features');
   wrap.replaceChildren();
-  FEATURES.forEach(([key, label, icon]) => {
+  const disabled = settings.enabled === false;
+  FEATURES.forEach(([key, label, icon, desc]) => {
     const row = document.createElement('label');
     row.className = 'feature';
+    if (desc) row.title = desc;
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = settings[key] !== false;
+    cb.disabled = disabled; // vraiment desactive (clavier inclus) quand l'extension est off
+    if (desc) cb.setAttribute('aria-label', `${label} : ${desc}`);
     cb.addEventListener('change', () => update(key, cb.checked));
     const span = document.createElement('span');
     span.textContent = label;
@@ -81,6 +86,7 @@ function renderHistory(history, now) {
     label.textContent = isDrop
       ? (e.name || 'Drop reclame')
       : `Palier ${TAUtil.formatCompact(e.amount || 0)} points`;
+    label.title = label.textContent; // nom complet au survol (les longs sont tronques)
     const time = document.createElement('span');
     time.className = 'hist-time';
     time.textContent = TAUtil.formatRelativeTime(e.ts, now);
@@ -94,8 +100,7 @@ async function load() {
     await chrome.storage.local.get(['settings', 'stats', 'history', 'lastError', 'update']);
   const now = Date.now();
 
-  // On affiche la banniere seulement si la version dispo est STRICTEMENT plus recente
-  // que la version installee. Ainsi elle disparait des qu'on est a jour (flag stocke ignore).
+  // Banniere affichee seulement si la version dispo est STRICTEMENT plus recente que l'installee.
   const installed = chrome.runtime.getManifest().version;
   const banner = document.getElementById('update-banner');
   if (upd && upd.version && TAUtil.compareVersions(upd.version, installed) > 0) {
@@ -131,7 +136,8 @@ async function update(key, val) {
 }
 
 document.getElementById('update-dl').addEventListener('click', () => {
-  if (lastUpdate && lastUpdate.url) {
+  // On ne telecharge que depuis une URL de release de NOTRE repo (sinon on ouvre la page).
+  if (lastUpdate && lastUpdate.url && lastUpdate.url.startsWith(DL_PREFIX)) {
     chrome.downloads.download({ url: lastUpdate.url });
     document.getElementById('update-hint').textContent =
       "Telecharge ! Dezippe par-dessus ton dossier, puis recharge l'extension.";
@@ -143,13 +149,28 @@ document.getElementById('update-dl').addEventListener('click', () => {
 document.getElementById('master').addEventListener('change', (e) => update('enabled', e.target.checked));
 document.getElementById('open-inventory').addEventListener('click', () =>
   chrome.tabs.create({ url: 'https://www.twitch.tv/drops/inventory' }));
-document.getElementById('reset').addEventListener('click', async () => {
+
+// Reset en deux temps (evite d'effacer compteurs + historique par megarde).
+let resetArmed = false;
+let resetTimer = null;
+const resetBtn = document.getElementById('reset');
+function disarmReset() { resetArmed = false; resetBtn.textContent = 'reinitialiser compteurs'; }
+resetBtn.addEventListener('click', async () => {
+  if (!resetArmed) {
+    resetArmed = true;
+    resetBtn.textContent = 'Confirmer ? (efface tout)';
+    resetTimer = setTimeout(disarmReset, 3000);
+    return;
+  }
+  clearTimeout(resetTimer);
+  disarmReset();
   await chrome.storage.local.set({ stats: { ...EMPTY_STATS }, history: [] });
   load();
 });
+
 document.getElementById('version').textContent = 'v' + chrome.runtime.getManifest().version;
 
-// Rafraichit le popup en direct quand compteurs/reglages/historique changent.
+// Rafraichit le popup en direct quand compteurs/reglages/historique/MAJ changent.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && (changes.stats || changes.settings || changes.history || changes.lastError || changes.update)) load();
 });

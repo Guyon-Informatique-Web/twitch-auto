@@ -22,7 +22,7 @@ TA.modules.reloader = (function () {
     const root = TA.dom.findFirst(TA.selectors.playerOverlay) ||
       document.querySelector('[data-a-target="video-player"]');
     if (!root) return false;
-    const txt = root.innerText || '';
+    const txt = root.textContent || '';
     if (TA.selectors.reloadExcludePatterns.some((re) => re.test(txt))) return false;
     return TA.selectors.reloadErrorPatterns.some((re) => re.test(txt));
   }

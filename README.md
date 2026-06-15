@@ -41,13 +41,12 @@ Penser a ajouter le domaine de l'endpoint dans `host_permissions` du `manifest.j
 
 ## Drops : farming hands-free
 
-La reclamation des drops se fait UNIQUEMENT via la page inventaire (`twitch.tv/drops/inventory`), pas depuis le stream. C'est volontaire et c'est la methode utilisee par tous les outils du genre :
+Deux voies de reclamation :
 
-- Le bouton "claim" affiche en bas du player en live est instable/cosmetique (il redirige souvent vers l'inventaire) et Twitch change ce DOM en permanence.
-- Sur une page de stream, beaucoup de boutons ressemblent a "Claim / En profiter / Obtenir" (sub gratuit, Prime, Turbo, recompense de points) : cliquer a l'aveugle risquerait de cliquer le mauvais.
-- Seul l'inventaire a un selecteur stable : `DropsCampaignInProgressRewardPresentation-claim-button` et le bouton texte "En profiter".
+- **Page inventaire** (`twitch.tv/drops/inventory`) : voie principale et fiable. Match large par texte ("En profiter"...) car le contexte est sur.
+- **Bandeau "drop pret" sur un stream** : quand un drop se termine pendant le visionnage, un bandeau avec timer (~20s) apparait au-dessus du chat avec un `<button>` "Obtenir". On le clique en exigeant un libelle de bouton EXACT (pour ne jamais cliquer le lien `<a>` "Obtenir" de navigation, ni "Obtenir Turbo", etc.).
 
-**Config recommandee** : garde un onglet ouvert sur `twitch.tv/drops/inventory` **en arriere-plan** (pas l'onglet actif). L'extension le recharge automatiquement toutes les 5 min et reclame les drops termines, sans intervention. Tu regardes tes streams dans les autres onglets.
+**Config recommandee** : garde un onglet ouvert sur `twitch.tv/drops/inventory` **en arriere-plan**. L'extension le recharge automatiquement toutes les 5 min et reclame les drops termines, sans intervention. Les drops qui se terminent pendant que tu regardes un stream sont aussi reclames via leur bandeau.
 
 ## Maintenance des selecteurs (quand Twitch casse quelque chose)
 
@@ -86,6 +85,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.4.0 : gros pack qualite. Bugs : qualite 160p restauree au 1er plan (plus de blocage permanent), drops anti-boucle a fenetre glissante + refresh inventaire SPA-safe, alarme de MAJ fiable, gain de points reel (lu dans le DOM), formatCompact. Drops : reclamation aussi depuis le bandeau "drop pret" sur un stream (bouton "Obtenir"). Perf : observer allege (retrait class, debounce ralenti en arriere-plan, arret quand tout est off), scans cibles. UX/accessibilite : toggle au clavier, confirmation du reset, infobulles des reglages et des noms de drops, libelles + regions live. Securite : ecritures storage serialisees, throttle erreurs persistant, permission api.github retiree, *.pem dans .gitignore, URL de telechargement validee.
 - v1.3.4 : corrige la banniere de MAJ qui restait affichee en permanence (le display:flex du CSS ecrasait l'attribut hidden). Combine avec v1.3.3, la banniere s'affiche seulement quand une version plus recente existe.
 - v1.3.3 : la banniere de mise a jour disparait des qu'on est sur la derniere version (comparaison avec la version reellement installee, au lieu d'un flag stocke).
 - v1.3.2 : le mute des onglets en arriere-plan se fait au niveau de l'onglet (chrome.tabs muted) au lieu de l'element video, ce qui evite de mettre le stream en pause (politique autoplay du navigateur).

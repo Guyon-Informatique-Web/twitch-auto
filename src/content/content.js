@@ -24,7 +24,8 @@ window.TA = window.TA || {};
     const data = await chrome.storage.local.get('settings');
     settings = data.settings || { enabled: true };
     TA.settings = settings;
-    TA.dom.start();
+    // L'observer demarre tout seul au 1er module actif (subscribe) et s'arrete quand
+    // plus aucun module n'est actif. Pas de start() inconditionnel ici.
     apply();
   }
 

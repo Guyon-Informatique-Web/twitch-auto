@@ -4,14 +4,20 @@
 window.TA = window.TA || {};
 TA.selectors = {
   // Coffre bonus de points de chaine (dans le chat).
-  // FR confirme : <button aria-label="Récupérer un bonus"> contenant .claimable-bonus__icon
+  // FR confirme : <button aria-label="Récupérer un bonus"> contenant .claimable-bonus__icon.
+  // Selecteurs SPECIFIQUES uniquement (pas de *="Claim"/"Réclamer" generique qui matcherait un drop).
   pointsClaim: [
     '[data-test-selector="community-points-claim"]',
     'button[aria-label*="Récupérer un bonus" i]',
-    'button[aria-label*="bonus" i]',
-    'button[aria-label*="Claim" i]',
-    'button[aria-label*="Réclamer" i]',
+    'button[aria-label*="Claim Bonus" i]',
+    '.claimable-bonus button',
     '.claimable-bonus__icon'
+  ],
+
+  // Solde de points de chaine affiche (pour calculer le gain reel d'un coffre).
+  pointsBalance: [
+    '[data-test-selector="balance-string"]',
+    '[data-a-target="balance-string"]'
   ],
 
   // Bouton de reclamation d'un drop
@@ -19,10 +25,12 @@ TA.selectors = {
     '[data-test-selector="DropsCampaignInProgressRewardPresentation-claim-button"]',
     'button[data-a-target="drops-claim-button"]'
   ],
-  // Indices texte pour reclamer un drop TERMINE (page inventaire).
-  // FR confirme : le bouton de reclamation est "En profiter".
-  // NB : "Obtenir" = lien <a> vers la campagne, PAS une reclamation -> exclu.
+  // Indices texte pour reclamer un drop TERMINE sur la page INVENTAIRE (match par sous-chaine, contexte sur).
+  // FR confirme : "En profiter".
   dropClaimTextHints: ['en profiter', 'réclamer', 'reclamer', 'claim now', 'claim'],
+  // Libelles EXACTS de bouton pour le bandeau "drop pret" SUR UN STREAM (match exact, zone non sure).
+  // Le bandeau timer (~20s) au-dessus du chat utilise un <button> "Obtenir" (un <a> "Obtenir" = navigation, ignore).
+  dropClaimExact: ['en profiter', 'obtenir', 'réclamer', 'reclamer', 'claim', 'claim now'],
 
   // Conteneur d'overlay d'erreur du player
   playerOverlay: [

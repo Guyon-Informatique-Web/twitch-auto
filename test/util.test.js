@@ -16,6 +16,7 @@ assert.strictEqual(formatCompact(1000), '1K');
 assert.strictEqual(formatCompact(5921), '5,9K');
 assert.strictEqual(formatCompact(10000), '10K');
 assert.strictEqual(formatCompact(1171270), '1,2M');
+assert.strictEqual(formatCompact(999999), '1M');
 
 // compareVersions(a, b)
 assert.strictEqual(compareVersions('1.2.3', '1.2.3'), 0);

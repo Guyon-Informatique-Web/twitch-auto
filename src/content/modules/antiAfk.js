@@ -11,7 +11,11 @@ TA.modules.antiAfk = (function () {
         TA.log.info('antiAfk', 'gate contenu mature accepte');
         return;
       }
-      const still = TA.dom.findByText('button', TA.selectors.stillWatchingHints);
+      // Recherche limitee a l'overlay du player (pas tout le DOM) -> moins de scan, moins de faux positifs.
+      const root = TA.dom.findFirst(TA.selectors.playerOverlay) ||
+        document.querySelector('[data-a-target="video-player"]');
+      if (!root) return;
+      const still = TA.dom.findByText('button', TA.selectors.stillWatchingHints, root);
       if (TA.dom.click(still)) {
         TA.log.info('antiAfk', 'prompt "toujours la" clique');
       }

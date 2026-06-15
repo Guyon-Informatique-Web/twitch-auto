@@ -18,7 +18,9 @@ body {
 .head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
 .head h1 { font-size: 16px; margin: 0; flex: 1; }
 .switch { position: relative; display: inline-block; width: 46px; height: 26px; }
-.switch input { display: none; }
+/* Masque la checkbox sans 'display:none' -> elle reste focusable au clavier (controle principal). */
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.switch input:focus-visible + .slider { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .slider {
   position: absolute; inset: 0; cursor: pointer;
   background: #3a3a3d; border-radius: 26px; transition: .2s;
@@ -79,4 +81,12 @@ section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); ma
 .btn:hover { background: #772ce8; }
 .foot-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11px; color: var(--muted); }
 .link { background: none; border: 0; color: var(--muted); cursor: pointer; text-decoration: underline; font-size: 11px; }
-body.off .features { opacity: .4; pointer-events: none; }
+body.off .features { opacity: .4; }
+.feature input:disabled { cursor: not-allowed; }
+.stat-label { font-size: 11px; color: var(--muted); }
+
+/* Anneau de focus visible et contraste sur tous les controles. */
+.btn:focus-visible, .update-dl:focus-visible, .link:focus-visible,
+.feature input:focus-visible, #open-inventory:focus-visible {
+  outline: 2px solid var(--cyan); outline-offset: 2px;
+}

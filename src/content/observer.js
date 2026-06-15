@@ -21,14 +21,16 @@ TA.dom = (function () {
     return null;
   }
 
-  // Recherche par texte/aria-label (fallback robuste).
-  function findByText(tag, hints, root) {
+  // Recherche par texte/aria-label. exact=true -> le libelle doit EGALER un indice
+  // (utile hors zone sure, ex. un stream, pour ne pas cliquer "Obtenir Turbo").
+  function findByText(tag, hints, root, exact) {
     root = root || document;
     const low = hints.map((h) => h.toLowerCase());
     const els = Array.from(root.querySelectorAll(tag));
     return els.find((el) => {
       const t = (el.textContent || '').trim().toLowerCase();
-      const a = (el.getAttribute('aria-label') || '').toLowerCase();
+      const a = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+      if (exact) return low.includes(t) || low.includes(a);
       return low.some((h) => t.includes(h) || a.includes(h));
     }) || null;
   }
@@ -39,41 +41,48 @@ TA.dom = (function () {
     return true;
   }
 
-  // Observation mutualisee avec debounce.
+  // Observation mutualisee avec debounce, demarree/arretee par comptage de references.
   let observer = null;
   let timer = null;
   const listeners = new Set();
 
+  function runAll() {
+    timer = null;
+    for (const cb of listeners) {
+      try { cb(); } catch (e) { if (TA.log) TA.log.error('observer', e); }
+    }
+  }
   function schedule() {
     if (timer) return;
-    timer = setTimeout(() => {
-      timer = null;
-      for (const cb of listeners) {
-        try { cb(); } catch (e) { if (TA.log) TA.log.error('observer', e); }
-      }
-    }, 150);
+    // Onglet en arriere-plan (farming AFK multi-onglets) : on relache la cadence -> moins de CPU.
+    const delay = document.hidden ? 1200 : 150;
+    timer = setTimeout(runAll, delay);
   }
 
-  function subscribe(cb) {
-    listeners.add(cb);
-    try { cb(); } catch (e) { if (TA.log) TA.log.error('observer', e); }
-    return () => listeners.delete(cb);
-  }
-
-  function start() {
+  function ensureObserving() {
     if (observer) return;
     observer = new MutationObserver(schedule);
     observer.observe(document.documentElement, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['aria-label', 'disabled', 'class']
+      attributeFilter: ['aria-label', 'disabled'] // 'class' retire : mutations massives et inutiles sur Twitch
     });
   }
-
-  function stop() {
+  function disconnect() {
     if (observer) { observer.disconnect(); observer = null; }
+    if (timer) { clearTimeout(timer); timer = null; }
   }
 
-  return { isClickable, findFirst, findByText, click, subscribe, start, stop };
+  function subscribe(cb) {
+    listeners.add(cb);
+    ensureObserving();
+    try { cb(); } catch (e) { if (TA.log) TA.log.error('observer', e); }
+    return () => {
+      listeners.delete(cb);
+      if (listeners.size === 0) disconnect(); // plus aucun module actif -> on libere l'observer
+    };
+  }
+
+  return { isClickable, findFirst, findByText, click, subscribe, start: ensureObserving, stop: disconnect };
 })();
