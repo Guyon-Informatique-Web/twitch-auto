@@ -44,21 +44,21 @@ TA.modules.tracker = (function () {
         }
         if (pct == null || pct >= 100) return;
         // nom = 1er libelle CoreText qui n'est PAS un texte de progression ("56% de 30 minutes"...).
+        // On ecarte aussi les recompenses expirees ("Cette recompense n'est plus disponible").
         const isProgress = (t) => /%/.test(t) || /^\d+\s*(min|h|heure|jour|sec|de\b)/i.test(t);
-        let el = bar; let name = '';
-        outer:
-        for (let i = 0; i < 7 && el; i++) {
+        const UNAVAILABLE = /n['’]est plus disponible|plus disponible|no longer available|expir/i;
+        let el = bar; let name = ''; let bad = false;
+        for (let i = 0; i < 7 && el && !name && !bad; i++) {
           if (el.querySelectorAll) {
-            const ps = el.querySelectorAll('p[class*="CoreText"], [role="heading"], h3, h4');
-            for (const p of ps) {
+            el.querySelectorAll('p[class*="CoreText"], [role="heading"], h3, h4').forEach((p) => {
               const t = (p.textContent || '').trim();
-              if (t.length >= 3 && t.length <= 80 && !isProgress(t) && !/ic[oô]ne|image/i.test(t)) {
-                name = t; break outer;
-              }
-            }
+              if (UNAVAILABLE.test(t)) bad = true;
+              else if (!name && t.length >= 3 && t.length <= 80 && !isProgress(t) && !/ic[oô]ne|image/i.test(t)) name = t;
+            });
           }
           el = el.parentElement;
         }
+        if (bad) return; // recompense expiree -> on ne l'affiche pas
         list.push({ name, percent: Math.max(0, Math.min(100, pct)) });
       });
       send({ type: 'inprogress', list: list.slice(0, 12) });

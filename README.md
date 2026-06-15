@@ -85,6 +85,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.7.1 : "Drops en cours" masque les recompenses expirees ("Cette recompense n'est plus disponible").
 - v1.7.0 : module Anti-pause - relance la lecture des onglets en arriere-plan mis en pause (Chrome/Twitch pausent parfois les onglets inactifs), sans toucher l'onglet regarde.
 - v1.6.3 : corrige "Drops en cours" qui disparaissait au reload de l'inventaire (on ignore le vidage transitoire pendant 6 min) ; un onglet sur une chaine compte comme actif meme pendant une pub (le temps de visionnage ne monte que si ca joue).
 - v1.6.2 : "Drops en cours" trie par progression decroissante (le plus avance en haut).
