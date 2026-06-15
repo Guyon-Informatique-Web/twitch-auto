@@ -40,11 +40,20 @@ TA.modules.tracker = (function () {
           if (Number.isFinite(now) && max) pct = Math.round((now / max) * 100);
         }
         if (pct == null || pct >= 100) return;
-        // nom = libelle CoreText le plus proche en remontant
+        // nom = 1er libelle CoreText qui n'est PAS un texte de progression ("56% de 30 minutes"...).
+        const isProgress = (t) => /%/.test(t) || /^\d+\s*(min|h|heure|jour|sec|de\b)/i.test(t);
         let el = bar; let name = '';
-        for (let i = 0; i < 6 && el; i++) {
-          const p = el.querySelector && el.querySelector('p[class*="CoreText"]');
-          if (p && (p.textContent || '').trim()) { name = p.textContent.trim().slice(0, 60); break; }
+        outer:
+        for (let i = 0; i < 7 && el; i++) {
+          if (el.querySelectorAll) {
+            const ps = el.querySelectorAll('p[class*="CoreText"], [role="heading"], h3, h4');
+            for (const p of ps) {
+              const t = (p.textContent || '').trim();
+              if (t.length >= 3 && t.length <= 80 && !isProgress(t) && !/ic[oô]ne|image/i.test(t)) {
+                name = t; break outer;
+              }
+            }
+          }
           el = el.parentElement;
         }
         list.push({ name, percent: Math.max(0, Math.min(100, pct)) });
