@@ -253,6 +253,20 @@ resetBtn.addEventListener('click', async () => {
 
 document.getElementById('version').textContent = 'v' + chrome.runtime.getManifest().version;
 
+// Onglets : Stats / Historique / Reglages.
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((t) => {
+    const on = t.dataset.tab === name;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  ['stats', 'history', 'settings'].forEach((n) => {
+    document.getElementById('tab-' + n).hidden = (n !== name);
+  });
+}
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+showTab('stats');
+
 // Rafraichit le popup en direct quand compteurs/reglages/historique/MAJ changent.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && (changes.stats || changes.settings || changes.history || changes.lastError || changes.update)) load();

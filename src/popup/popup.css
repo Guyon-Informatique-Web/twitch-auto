@@ -32,6 +32,15 @@ body {
 .switch input:checked + .slider { background: var(--purple); }
 .switch input:checked + .slider::before { transform: translateX(20px); }
 
+.tabs { display: flex; gap: 4px; padding: 4px 8px 0; border-bottom: 1px solid #2a2a2e; }
+.tab { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 9px 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.tab.active { color: var(--text); border-bottom-color: var(--purple); }
+.tab:hover { color: var(--text); }
+.tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+.panel { padding-top: 12px; }
+.panel[hidden] { display: none; }
+.settings-foot { padding: 8px 16px 16px; }
+
 .stats { display: flex; gap: 10px; padding: 0 16px 12px; }
 .stat {
   flex: 1; background: var(--surface); border-radius: 10px; padding: 12px;
@@ -64,7 +73,7 @@ section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); ma
 .update-dl:hover { background: #772ce8; }
 .update-hint { font-size: 11px; color: var(--muted); }
 
-.history { max-height: 138px; overflow-y: auto; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px; }
+.history { max-height: 440px; overflow-y: auto; padding: 0 16px 14px; display: flex; flex-direction: column; gap: 6px; }
 .hist-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .hist-row .fic { flex: 0 0 auto; }
 .hist-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
