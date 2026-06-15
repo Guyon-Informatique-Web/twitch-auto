@@ -9,7 +9,8 @@ const ICONS = {
   eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
   mute: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>',
   bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-  shuffle: '<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>'
+  shuffle: '<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>',
+  play: '<polygon points="5 3 19 12 5 21 5 3"/>'
 };
 
 // [cle de reglage, libelle, icone, description (infobulle)]
@@ -20,6 +21,7 @@ const FEATURES = [
   ['lowQuality', 'Qualite mini', ICONS.quality, 'Passe la video en 160p sur les onglets en arriere-plan.'],
   ['antiAfk', 'Anti-AFK', ICONS.eye, 'Clique les fenetres "Toujours la ?" et le contenu sensible.'],
   ['muteBackground', 'Mute fond', ICONS.mute, 'Coupe le son des onglets en arriere-plan.'],
+  ['keepAlive', 'Anti-pause', ICONS.play, 'Relance la lecture des onglets en arriere-plan s ils se mettent en pause.'],
   ['notifications', 'Notifications', ICONS.bell, 'Notification desktop sur drop / palier de points.'],
   ['autoSwitch', 'Auto-switch', ICONS.shuffle, 'Bascule vers une chaine de repli si le stream passe hors-ligne (regle l URL ci-dessous).']
 ];

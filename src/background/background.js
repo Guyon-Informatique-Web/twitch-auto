@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = {
   antiAfk: true,
   muteBackground: true,
   notifications: true,
+  keepAlive: true,        // relance la lecture des onglets en arriere-plan mis en pause
   tracker: true,          // suivi temps de visionnage / drops en cours (pas de toggle visible)
   autoSwitch: false,      // bascule si chaine hors-ligne (opt-in, redirige l'onglet)
   autoSwitchUrl: '',      // URL de repli pour l'auto-switch
