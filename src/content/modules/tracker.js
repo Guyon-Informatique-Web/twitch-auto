@@ -21,8 +21,11 @@ TA.modules.tracker = (function () {
 
   function beat() {
     const channel = TA.dom.currentChannel();
-    if (!channel || !isPlaying()) return; // on ne compte que quand une chaine joue vraiment
-    send({ type: 'watch', channel, seconds: Math.round(BEAT_MS / 1000) });
+    if (!channel) return; // seulement sur une page de chaine
+    // L'onglet compte comme "actif" tant qu'il est sur une chaine (meme pendant une pub) ;
+    // le temps de visionnage ne s'incremente que si la video joue vraiment.
+    const playing = isPlaying();
+    send({ type: 'watch', channel, seconds: playing ? Math.round(BEAT_MS / 1000) : 0 });
   }
 
   function snapshotInProgress() {

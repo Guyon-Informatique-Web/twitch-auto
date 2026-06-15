@@ -24,6 +24,7 @@ const DEFAULT_STATS = {
   watchSeconds: 0,        // temps de visionnage cumule
   byChannel: {},          // { slug: { points, drops, seconds } }
   inProgress: [],         // drops en cours { name, percent }
+  inProgressTs: null,     // date du dernier snapshot non vide (anti-flicker au reload)
   heartbeats: {}          // { tabId: ts } -> nb d'onglets actifs
 };
 const POINTS_NOTIFY_STEP = 5000;            // notif points tous les 5000 pts cumules
@@ -185,7 +186,13 @@ function handleInProgress(msg) {
   return enqueue(async () => {
     const { stats } = await chrome.storage.local.get('stats');
     const s = { ...DEFAULT_STATS, ...(stats || {}) };
-    s.inProgress = Array.isArray(msg.list) ? msg.list.slice(0, 12) : [];
+    const list = Array.isArray(msg.list) ? msg.list.slice(0, 12) : [];
+    const now = Date.now();
+    // Au reload de l'inventaire, la page renvoie brievement 0 drop : on ignore ce vidage
+    // transitoire tant qu'on a eu une liste non vide il y a moins de 6 min.
+    if (list.length === 0 && s.inProgressTs && now - s.inProgressTs < 6 * 60 * 1000) return;
+    s.inProgress = list;
+    if (list.length) s.inProgressTs = now;
     await chrome.storage.local.set({ stats: s });
   });
 }

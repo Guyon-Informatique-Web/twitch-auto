@@ -85,6 +85,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.6.3 : corrige "Drops en cours" qui disparaissait au reload de l'inventaire (on ignore le vidage transitoire pendant 6 min) ; un onglet sur une chaine compte comme actif meme pendant une pub (le temps de visionnage ne monte que si ca joue).
 - v1.6.2 : "Drops en cours" trie par progression decroissante (le plus avance en haut).
 - v1.6.1 : "Drops en cours" affiche le vrai nom du drop (ignore le texte de progression "X% de Y minutes").
 - v1.6.0 : popup reorganise en 3 onglets (Stats / Historique / Reglages). Le toggle general reste en tete, visible partout.
