@@ -85,6 +85,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.6.2 : "Drops en cours" trie par progression decroissante (le plus avance en haut).
 - v1.6.1 : "Drops en cours" affiche le vrai nom du drop (ignore le texte de progression "X% de Y minutes").
 - v1.6.0 : popup reorganise en 3 onglets (Stats / Historique / Reglages). Le toggle general reste en tete, visible partout.
 - v1.5.0 : suivi du temps de visionnage + nombre d'onglets actifs, vue "drops en cours" (% de progression), stats par chaine (top chaines), et auto-switch vers une chaine de repli quand le stream regarde passe hors-ligne (toggle + URL de repli, opt-in).

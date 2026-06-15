@@ -121,7 +121,8 @@ function renderInProgress(list) {
   wrap.replaceChildren();
   if (!list || !list.length) { sec.hidden = true; return; }
   sec.hidden = false;
-  list.slice(0, 8).forEach((d) => {
+  // Tri par progression decroissante : les drops les plus proches de la fin en haut.
+  list.slice().sort((a, b) => (b.percent || 0) - (a.percent || 0)).slice(0, 8).forEach((d) => {
     const row = document.createElement('div'); row.className = 'ip-row';
     const name = document.createElement('span'); name.className = 'ip-name';
     name.textContent = d.name || 'Drop'; name.title = name.textContent;
