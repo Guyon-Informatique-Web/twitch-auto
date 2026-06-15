@@ -85,6 +85,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.4.1 : bouton "exporter" (sauvegarde compteurs + historique en JSON) ; permission api.github.com conservee pour garantir la notif de MAJ chez les amis.
 - v1.4.0 : gros pack qualite. Bugs : qualite 160p restauree au 1er plan (plus de blocage permanent), drops anti-boucle a fenetre glissante + refresh inventaire SPA-safe, alarme de MAJ fiable, gain de points reel (lu dans le DOM), formatCompact. Drops : reclamation aussi depuis le bandeau "drop pret" sur un stream (bouton "Obtenir"). Perf : observer allege (retrait class, debounce ralenti en arriere-plan, arret quand tout est off), scans cibles. UX/accessibilite : toggle au clavier, confirmation du reset, infobulles des reglages et des noms de drops, libelles + regions live. Securite : ecritures storage serialisees, throttle erreurs persistant, permission api.github retiree, *.pem dans .gitignore, URL de telechargement validee.
 - v1.3.4 : corrige la banniere de MAJ qui restait affichee en permanence (le display:flex du CSS ecrasait l'attribut hidden). Combine avec v1.3.3, la banniere s'affiche seulement quand une version plus recente existe.
 - v1.3.3 : la banniere de mise a jour disparait des qu'on est sur la derniere version (comparaison avec la version reellement installee, au lieu d'un flag stocke).

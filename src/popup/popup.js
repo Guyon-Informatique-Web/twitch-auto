@@ -150,11 +150,19 @@ document.getElementById('master').addEventListener('change', (e) => update('enab
 document.getElementById('open-inventory').addEventListener('click', () =>
   chrome.tabs.create({ url: 'https://www.twitch.tv/drops/inventory' }));
 
+// Export des compteurs + historique en JSON (sauvegarde).
+document.getElementById('export').addEventListener('click', async () => {
+  const { stats = {}, history = [] } = await chrome.storage.local.get(['stats', 'history']);
+  const payload = JSON.stringify({ exportedAt: new Date().toISOString(), stats, history }, null, 2);
+  const url = 'data:application/json;charset=utf-8,' + encodeURIComponent(payload);
+  chrome.downloads.download({ url, filename: 'twitch-auto-historique.json' });
+});
+
 // Reset en deux temps (evite d'effacer compteurs + historique par megarde).
 let resetArmed = false;
 let resetTimer = null;
 const resetBtn = document.getElementById('reset');
-function disarmReset() { resetArmed = false; resetBtn.textContent = 'reinitialiser compteurs'; }
+function disarmReset() { resetArmed = false; resetBtn.textContent = 'reinitialiser'; }
 resetBtn.addEventListener('click', async () => {
   if (!resetArmed) {
     resetArmed = true;

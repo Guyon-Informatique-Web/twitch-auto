@@ -80,6 +80,7 @@ section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); ma
 }
 .btn:hover { background: #772ce8; }
 .foot-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11px; color: var(--muted); }
+.foot-actions { display: flex; gap: 12px; }
 .link { background: none; border: 0; color: var(--muted); cursor: pointer; text-decoration: underline; font-size: 11px; }
 body.off .features { opacity: .4; }
 .feature input:disabled { cursor: not-allowed; }
