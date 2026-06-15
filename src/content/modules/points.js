@@ -28,7 +28,7 @@ TA.modules.points = (function () {
         if (before != null && after != null && after > before && after - before <= 100000) {
           amount = after - before;
         }
-        TA.report('points', { amount });
+        TA.report('points', { amount, channel: TA.dom.currentChannel() });
       }, 1500);
     } catch (e) { TA.log.error('points', e); }
   }

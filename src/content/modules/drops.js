@@ -81,7 +81,7 @@ TA.modules.drops = (function () {
       lastClick = now;
       recent.push(now);
       const name = getDropName(btn);
-      TA.report('drop', { name });
+      TA.report('drop', { name, channel: TA.dom.currentChannel() });
       TA.log.info('drops', name ? `drop reclame : ${name}` : 'drop reclame');
 
       // Re-essaye apres le cooldown pour enchainer les drops suivants.

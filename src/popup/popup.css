@@ -71,6 +71,17 @@ section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); ma
 .hist-time { color: var(--muted); font-size: 11px; flex: 0 0 auto; }
 .hist-empty { color: var(--muted); font-size: 12px; margin: 0; }
 
+.meta { margin: -4px 16px 12px; font-size: 11px; color: var(--muted); }
+.as-row { margin: 0 16px 12px; }
+.as-row input { width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #3a3a3d; background: var(--surface); color: var(--text); font-size: 11px; }
+#inprogress, #channels { padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ip-row, .ch-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.ip-name, .ch-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ip-bar { width: 64px; height: 6px; border-radius: 4px; background: #3a3a3d; overflow: hidden; flex: 0 0 auto; }
+.ip-fill { height: 100%; background: var(--gold); }
+.ip-pct { font-size: 11px; color: var(--muted); width: 34px; text-align: right; flex: 0 0 auto; }
+.ch-stat { font-size: 11px; color: var(--muted); flex: 0 0 auto; }
+
 .diag { color: #ff6b6b; font-size: 11px; margin: 0 16px; min-height: 14px; }
 
 .foot { padding: 8px 16px 16px; }

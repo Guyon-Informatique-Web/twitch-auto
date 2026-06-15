@@ -8,7 +8,8 @@ const ICONS = {
   quality: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
   eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
   mute: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>',
-  bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
+  bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  shuffle: '<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>'
 };
 
 // [cle de reglage, libelle, icone, description (infobulle)]
@@ -19,7 +20,8 @@ const FEATURES = [
   ['lowQuality', 'Qualite mini', ICONS.quality, 'Passe la video en 160p sur les onglets en arriere-plan.'],
   ['antiAfk', 'Anti-AFK', ICONS.eye, 'Clique les fenetres "Toujours la ?" et le contenu sensible.'],
   ['muteBackground', 'Mute fond', ICONS.mute, 'Coupe le son des onglets en arriere-plan.'],
-  ['notifications', 'Notifications', ICONS.bell, 'Notification desktop sur drop / palier de points.']
+  ['notifications', 'Notifications', ICONS.bell, 'Notification desktop sur drop / palier de points.'],
+  ['autoSwitch', 'Auto-switch', ICONS.shuffle, 'Bascule vers une chaine de repli si le stream passe hors-ligne (regle l URL ci-dessous).']
 ];
 const EMPTY_STATS = { pointsClaimed: 0, pointsValue: 0, lastPointsClaim: null, dropsClaimed: 0, lastDropsClaim: null };
 const RELEASES_URL = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/latest';
@@ -95,6 +97,70 @@ function renderHistory(history, now) {
   });
 }
 
+function fmtDuration(sec) {
+  sec = Math.max(0, Math.floor(sec || 0));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (h) return `${h}h${String(m).padStart(2, '0')}`;
+  return `${m} min`;
+}
+
+function renderMeta(stats) {
+  const now = Date.now();
+  const hb = stats.heartbeats || {};
+  let active = 0;
+  for (const k in hb) { if (now - hb[k] < 150000) active += 1; }
+  const s = active > 1 ? 's' : '';
+  document.getElementById('meta').textContent =
+    `${fmtDuration(stats.watchSeconds)} de visionnage - ${active} onglet${s} actif${s}`;
+}
+
+function renderInProgress(list) {
+  const sec = document.getElementById('inprogress-section');
+  const wrap = document.getElementById('inprogress');
+  wrap.replaceChildren();
+  if (!list || !list.length) { sec.hidden = true; return; }
+  sec.hidden = false;
+  list.slice(0, 8).forEach((d) => {
+    const row = document.createElement('div'); row.className = 'ip-row';
+    const name = document.createElement('span'); name.className = 'ip-name';
+    name.textContent = d.name || 'Drop'; name.title = name.textContent;
+    const bar = document.createElement('div'); bar.className = 'ip-bar';
+    const fill = document.createElement('div'); fill.className = 'ip-fill';
+    fill.style.width = Math.max(0, Math.min(100, d.percent || 0)) + '%';
+    bar.appendChild(fill);
+    const pct = document.createElement('span'); pct.className = 'ip-pct';
+    pct.textContent = (d.percent || 0) + '%';
+    row.append(name, bar, pct);
+    wrap.appendChild(row);
+  });
+}
+
+function renderChannels(byChannel) {
+  const sec = document.getElementById('channels-section');
+  const wrap = document.getElementById('channels');
+  wrap.replaceChildren();
+  const entries = Object.entries(byChannel || {})
+    .map(([name, c]) => ({ name, points: c.points || 0, drops: c.drops || 0, seconds: c.seconds || 0 }))
+    .filter((c) => c.points || c.drops || c.seconds)
+    .sort((a, b) => (b.drops - a.drops) || (b.points - a.points) || (b.seconds - a.seconds))
+    .slice(0, 5);
+  if (!entries.length) { sec.hidden = true; return; }
+  sec.hidden = false;
+  entries.forEach((c) => {
+    const row = document.createElement('div'); row.className = 'ch-row';
+    const name = document.createElement('span'); name.className = 'ch-name';
+    name.textContent = c.name; name.title = c.name;
+    const stat = document.createElement('span'); stat.className = 'ch-stat';
+    const parts = [];
+    if (c.points) parts.push(TAUtil.formatCompact(c.points) + ' pts');
+    if (c.drops) parts.push(c.drops + ' drop' + (c.drops > 1 ? 's' : ''));
+    stat.textContent = parts.join(' - ');
+    row.append(name, stat);
+    wrap.appendChild(row);
+  });
+}
+
 async function load() {
   const { settings = {}, stats = {}, history = [], lastError, update: upd } =
     await chrome.storage.local.get(['settings', 'stats', 'history', 'lastError', 'update']);
@@ -121,7 +187,15 @@ async function load() {
   document.getElementById('drops-last').textContent = TAUtil.formatRelativeTime(stats.lastDropsClaim, now);
 
   renderFeatures(settings);
+  renderMeta(stats);
+  renderInProgress(stats.inProgress || []);
+  renderChannels(stats.byChannel || {});
   renderHistory(history, now);
+
+  // Ligne URL de l'auto-switch (visible seulement si le toggle est actif).
+  document.getElementById('autoswitch-row').hidden = settings.autoSwitch !== true;
+  const asInput = document.getElementById('autoswitch-url');
+  if (document.activeElement !== asInput) asInput.value = settings.autoSwitchUrl || '';
 
   document.getElementById('diag').textContent = lastError
     ? `Derniere erreur (${lastError.module}) : ${lastError.message}`
@@ -146,6 +220,7 @@ document.getElementById('update-dl').addEventListener('click', () => {
   }
 });
 
+document.getElementById('autoswitch-url').addEventListener('change', (e) => update('autoSwitchUrl', e.target.value.trim()));
 document.getElementById('master').addEventListener('change', (e) => update('enabled', e.target.checked));
 document.getElementById('open-inventory').addEventListener('click', () =>
   chrome.tabs.create({ url: 'https://www.twitch.tv/drops/inventory' }));

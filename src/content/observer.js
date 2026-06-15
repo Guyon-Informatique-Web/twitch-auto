@@ -84,5 +84,13 @@ TA.dom = (function () {
     };
   }
 
-  return { isClickable, findFirst, findByText, click, subscribe, start: ensureObserving, stop: disconnect };
+  // Slug de la chaine courante ('' si on n'est pas sur une page de chaine).
+  function currentChannel() {
+    const seg = (location.pathname.split('/')[1] || '').toLowerCase();
+    const block = (TA.selectors && TA.selectors.notChannelPaths) || [];
+    if (!seg || block.includes(seg)) return '';
+    return seg;
+  }
+
+  return { isClickable, findFirst, findByText, click, subscribe, currentChannel, start: ensureObserving, stop: disconnect };
 })();

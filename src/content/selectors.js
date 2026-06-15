@@ -65,5 +65,18 @@ TA.selectors = {
     /abonn/i,
     /unavailable/i,
     /indisponible/i
-  ]
+  ],
+
+  // Segments de chemin qui ne sont PAS une chaine (pour identifier la chaine courante).
+  notChannelPaths: [
+    '', 'directory', 'drops', 'settings', 'u', 'p', 'subscriptions', 'wallet',
+    'inventory', 'friends', 'search', 'videos', 'following', 'prime', 'turbo',
+    'downloads', 'jobs', 'store', 'team', 'event', 'popout', 'moderator'
+  ],
+
+  // Barre de progression d'un drop en cours (page inventaire).
+  dropProgress: ['[role="progressbar"]'],
+
+  // Etat "chaine hors-ligne" (pour l'auto-switch).
+  offlinePatterns: [/hors[- ]?ligne/i, /\boffline\b/i, /est absent/i]
 };

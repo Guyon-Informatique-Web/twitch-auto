@@ -10,14 +10,21 @@ const DEFAULT_SETTINGS = {
   antiAfk: true,
   muteBackground: true,
   notifications: true,
-  errorEndpoint: '' // URL log-error de giw-site-web (a renseigner ; vide = pas d'envoi)
+  tracker: true,          // suivi temps de visionnage / drops en cours (pas de toggle visible)
+  autoSwitch: false,      // bascule si chaine hors-ligne (opt-in, redirige l'onglet)
+  autoSwitchUrl: '',      // URL de repli pour l'auto-switch
+  errorEndpoint: ''       // URL log-error de giw-site-web (a renseigner ; vide = pas d'envoi)
 };
 const DEFAULT_STATS = {
   pointsClaimed: 0,
   pointsValue: 0,
   lastPointsClaim: null,
   dropsClaimed: 0,
-  lastDropsClaim: null
+  lastDropsClaim: null,
+  watchSeconds: 0,        // temps de visionnage cumule
+  byChannel: {},          // { slug: { points, drops, seconds } }
+  inProgress: [],         // drops en cours { name, percent }
+  heartbeats: {}          // { tabId: ts } -> nb d'onglets actifs
 };
 const POINTS_NOTIFY_STEP = 5000;            // notif points tous les 5000 pts cumules
 const HISTORY_MAX = 200;                    // nombre max d'evenements conserves
@@ -107,6 +114,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
     return false;
   }
+  if (msg.type === 'watch') { handleWatch(msg, sender); return false; }
+  if (msg.type === 'inprogress') { handleInProgress(msg); return false; }
   return false;
 });
 
@@ -135,8 +144,49 @@ function handleClaim(msg) {
       if (settings.notifications) notify('Drop reclame', msg.name ? `Drop: ${msg.name}` : 'Un drop a ete reclame');
     }
 
+    // Agregation par chaine.
+    const ch = msg.channel || '';
+    if (ch) {
+      s.byChannel = s.byChannel || {};
+      const c = s.byChannel[ch] || { points: 0, drops: 0, seconds: 0 };
+      if (msg.kind === 'points') c.points += (msg.amount || 0);
+      else if (msg.kind === 'drop') c.drops += 1;
+      s.byChannel[ch] = c;
+    }
+
     if (history.length > HISTORY_MAX) history.splice(0, history.length - HISTORY_MAX);
     await chrome.storage.local.set({ stats: s, history });
+  });
+}
+
+function handleWatch(msg, sender) {
+  return enqueue(async () => {
+    const { stats } = await chrome.storage.local.get('stats');
+    const s = { ...DEFAULT_STATS, ...(stats || {}) };
+    const now = Date.now();
+    const sec = Math.max(0, Math.min(120, msg.seconds || 0)); // borne de securite
+    s.watchSeconds = (s.watchSeconds || 0) + sec;
+    const ch = msg.channel || '';
+    if (ch) {
+      s.byChannel = s.byChannel || {};
+      const c = s.byChannel[ch] || { points: 0, drops: 0, seconds: 0 };
+      c.seconds += sec;
+      s.byChannel[ch] = c;
+    }
+    // Onglets actifs : dernier battement par onglet, purge des vieux.
+    s.heartbeats = s.heartbeats || {};
+    if (sender.tab && sender.tab.id != null) s.heartbeats[sender.tab.id] = now;
+    for (const k in s.heartbeats) { if (now - s.heartbeats[k] > 150000) delete s.heartbeats[k]; }
+    await chrome.storage.local.set({ stats: s });
+  });
+}
+
+function handleInProgress(msg) {
+  return enqueue(async () => {
+    const { stats } = await chrome.storage.local.get('stats');
+    const s = { ...DEFAULT_STATS, ...(stats || {}) };
+    s.inProgress = Array.isArray(msg.list) ? msg.list.slice(0, 12) : [];
+    await chrome.storage.local.set({ stats: s });
   });
 }
 
