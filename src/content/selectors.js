@@ -15,9 +15,14 @@ TA.selectors = {
   ],
 
   // Solde de points de chaine affiche (pour calculer le gain reel d'un coffre).
+  // FR confirme : <span class="ScAnimatedNumber-..."> dans un <button aria-label="Vous avez X Points...">.
+  // (Le streamer peut renommer ses points, ex. "Points Zen" -> on ne se base pas sur le mot "chaine".)
   pointsBalance: [
     '[data-test-selector="balance-string"]',
-    '[data-a-target="balance-string"]'
+    '[data-a-target="balance-string"]',
+    '[data-test-selector="community-points-summary"] span[class*="ScAnimatedNumber"]',
+    'button[aria-label*="Points" i] span[class*="ScAnimatedNumber"]',
+    'span[class*="ScAnimatedNumber"]'
   ],
 
   // Bouton de reclamation d'un drop

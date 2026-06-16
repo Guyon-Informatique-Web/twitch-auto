@@ -85,6 +85,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.9.1 : recale le selecteur du solde de points (nombre anime dans le bouton de points) -> le gain de points reel fonctionne meme quand le streamer renomme ses points.
 - v1.9.0 : ETA (temps restant estime) a cote de chaque drop en cours ; bouton "Tester les selecteurs" dans Reglages (diagnostic quand Twitch change son interface) ; option "Inventaire auto" qui garde/ouvre l'onglet inventaire en arriere-plan.
 - v1.8.3 : empeche carrement la mise en pause des onglets en arriere-plan (override de video.pause() dans le contexte de la page quand l'onglet est cache) -> plus de tug-of-war avec Twitch.
 - v1.8.2 : anti-pause instantane - ecoute l'evenement 'pause' de la video (non throttle) pour relancer des que Twitch met en pause au changement d'onglet (avec garde anti-boucle).
