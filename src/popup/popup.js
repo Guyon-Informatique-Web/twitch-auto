@@ -10,7 +10,8 @@ const ICONS = {
   mute: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>',
   bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
   shuffle: '<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>',
-  play: '<polygon points="5 3 19 12 5 21 5 3"/>'
+  play: '<polygon points="5 3 19 12 5 21 5 3"/>',
+  package: '<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'
 };
 
 // [cle de reglage, libelle, icone, description (infobulle)]
@@ -22,6 +23,7 @@ const FEATURES = [
   ['antiAfk', 'Anti-AFK', ICONS.eye, 'Clique les fenetres "Toujours la ?" et le contenu sensible.'],
   ['muteBackground', 'Mute fond', ICONS.mute, 'Coupe le son des onglets en arriere-plan.'],
   ['keepAlive', 'Anti-pause', ICONS.play, 'Relance la lecture des onglets en arriere-plan s ils se mettent en pause.'],
+  ['autoInventory', 'Inventaire auto', ICONS.package, 'Garde/ouvre l onglet inventaire des drops en arriere-plan pour reclamer sans y penser.'],
   ['notifications', 'Notifications', ICONS.bell, 'Notification desktop sur drop / palier de points.'],
   ['autoSwitch', 'Auto-switch', ICONS.shuffle, 'Bascule vers une chaine de repli si le stream passe hors-ligne (regle l URL ci-dessous).']
 ];
@@ -135,6 +137,11 @@ function renderInProgress(list) {
     const pct = document.createElement('span'); pct.className = 'ip-pct';
     pct.textContent = (d.percent || 0) + '%';
     row.append(name, bar, pct);
+    if (d.remainingMin != null) {
+      const eta = document.createElement('span'); eta.className = 'ip-eta';
+      eta.textContent = '~' + fmtDuration(d.remainingMin * 60); // temps restant estime
+      row.append(eta);
+    }
     wrap.appendChild(row);
   });
 }
@@ -224,6 +231,28 @@ document.getElementById('update-dl').addEventListener('click', () => {
 });
 
 document.getElementById('autoswitch-url').addEventListener('change', (e) => update('autoSwitchUrl', e.target.value.trim()));
+
+document.getElementById('diag-test-btn').addEventListener('click', async () => {
+  const out = document.getElementById('diag-result');
+  out.textContent = 'Test en cours...';
+  let tab;
+  try { [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); } catch (e) { /* */ }
+  if (!tab || !/^https:\/\/www\.twitch\.tv\//.test(tab.url || '')) {
+    out.textContent = "Ouvre une page Twitch (onglet actif) et relance le test.";
+    return;
+  }
+  try {
+    const r = await chrome.tabs.sendMessage(tab.id, { type: 'diagnose' });
+    if (!r) { out.textContent = 'Pas de reponse - recharge la page Twitch puis reessaie.'; return; }
+    const yn = (b) => (b ? 'OK' : 'absent');
+    out.textContent =
+      `Points: ${yn(r.points)}  |  Solde: ${yn(r.pointsBalance)}\n` +
+      `Drop selecteur: ${yn(r.dropSelector)}  |  Drop texte: ${yn(r.dropText)}\n` +
+      `Overlay player: ${yn(r.playerOverlay)}  |  Barres progression: ${r.progressBars}`;
+  } catch (e) {
+    out.textContent = 'Pas de reponse - recharge la page Twitch puis reessaie.';
+  }
+});
 document.getElementById('master').addEventListener('change', (e) => update('enabled', e.target.checked));
 document.getElementById('open-inventory').addEventListener('click', () =>
   chrome.tabs.create({ url: 'https://www.twitch.tv/drops/inventory' }));

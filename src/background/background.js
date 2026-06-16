@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   muteBackground: true,
   notifications: true,
   keepAlive: true,        // relance la lecture des onglets en arriere-plan mis en pause
+  autoInventory: false,   // garde/ouvre l'onglet inventaire des drops en arriere-plan (opt-in)
   tracker: true,          // suivi temps de visionnage / drops en cours (pas de toggle visible)
   autoSwitch: false,      // bascule si chaine hors-ligne (opt-in, redirige l'onglet)
   autoSwitchUrl: '',      // URL de repli pour l'auto-switch
@@ -50,6 +51,16 @@ function ensureAlarm() {
   });
 }
 
+// Ouvre l'onglet inventaire des drops en arriere-plan s'il n'est pas deja ouvert (option opt-in).
+async function ensureInventoryTab() {
+  const { settings } = await chrome.storage.local.get('settings');
+  if (!settings || !settings.autoInventory) return;
+  try {
+    const tabs = await chrome.tabs.query({ url: 'https://www.twitch.tv/drops/inventory*' });
+    if (!tabs.length) chrome.tabs.create({ url: 'https://www.twitch.tv/drops/inventory', active: false });
+  } catch (e) { /* ignore */ }
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   const cur = await chrome.storage.local.get(['settings', 'stats']);
   await chrome.storage.local.set({
@@ -59,13 +70,20 @@ chrome.runtime.onInstalled.addListener(async () => {
   ensureAlarm();
   updateBadge();
   checkUpdate();
+  ensureInventoryTab();
 });
 
-chrome.runtime.onStartup.addListener(() => { ensureAlarm(); checkUpdate(); });
+chrome.runtime.onStartup.addListener(() => { ensureAlarm(); checkUpdate(); ensureInventoryTab(); });
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'checkUpdate') checkUpdate(); });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.settings) updateBadge();
+  if (area === 'local' && changes.settings) {
+    updateBadge();
+    // Si on vient d'activer "Inventaire auto", on ouvre l'onglet tout de suite.
+    const cur = changes.settings.newValue || {};
+    const prev = changes.settings.oldValue || {};
+    if (cur.autoInventory && !prev.autoInventory) ensureInventoryTab();
+  }
 });
 
 async function updateBadge() {

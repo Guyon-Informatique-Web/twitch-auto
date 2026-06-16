@@ -85,6 +85,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.9.0 : ETA (temps restant estime) a cote de chaque drop en cours ; bouton "Tester les selecteurs" dans Reglages (diagnostic quand Twitch change son interface) ; option "Inventaire auto" qui garde/ouvre l'onglet inventaire en arriere-plan.
 - v1.8.3 : empeche carrement la mise en pause des onglets en arriere-plan (override de video.pause() dans le contexte de la page quand l'onglet est cache) -> plus de tug-of-war avec Twitch.
 - v1.8.2 : anti-pause instantane - ecoute l'evenement 'pause' de la video (non throttle) pour relancer des que Twitch met en pause au changement d'onglet (avec garde anti-boucle).
 - v1.8.1 : anti-pause renforce - les onglets de fond dont la lecture est refusee par Chrome (autoplay avec son bloque) sont relances en muet, pour qu'ils jouent vraiment et farment.

@@ -37,5 +37,27 @@ window.TA = window.TA || {};
     }
   });
 
+  // Diagnostic des selecteurs (declenche depuis le popup) : indique ce que l'extension trouve
+  // sur la page courante. "absent" peut etre normal selon la page (ex. pas de coffre dispo).
+  function diagnose() {
+    const S = TA.selectors;
+    const has = (cands) => !!TA.dom.findFirst(cands);
+    return {
+      url: location.href,
+      points: has(S.pointsClaim),
+      pointsBalance: has(S.pointsBalance),
+      dropSelector: has(S.dropClaim),
+      dropText: !!TA.dom.findByText('button, [role="button"], a', S.dropClaimTextHints),
+      playerOverlay: has(S.playerOverlay),
+      progressBars: document.querySelectorAll(S.dropProgress.join(',')).length
+    };
+  }
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg && msg.type === 'diagnose') {
+      try { sendResponse(diagnose()); } catch (e) { sendResponse({ error: String(e) }); }
+    }
+    return false;
+  });
+
   init().catch((e) => TA.log.error('core', e));
 })();

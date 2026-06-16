@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Twitch Auto",
-  "version": "1.8.3",
+  "version": "1.9.0",
   "description": "Auto-claim points de chaine et drops Twitch, reload auto et aides de farming AFK. Usage local.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuM2xETXknfDOXk5X5rTg2ddWIbdZ3g0oA0meKCrxEjA6DlUwNlzyB/uVXEPttYlBQTvU6SreJxwcFAh7yoV2bt/blI4Z4Tzy7NRd/5VV9IfE355eWKWhBPwPMZo3E8bWFXDxU6snLi8bgZLmX89iChslx/U+n8X2GvdMUpv6/yA7ON0KQ/FVFxb4c2ErfnJMhGebmS77FgxFmcWmHgIqBWiOV4M+yW5NH8ZBpqVbpLILFzVxpoVphJzZWlwk9uyPb1bL4CQwiKxHXHsNarqqPBiKRtckYMR9CtRoMMcuAxzNEysjbgrzSIgP5sJBb+M31DZScDc9luPKl7MnVxsBZQIDAQAB",
   "icons": {

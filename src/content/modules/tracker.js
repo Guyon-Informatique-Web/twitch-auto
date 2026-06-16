@@ -44,22 +44,31 @@ TA.modules.tracker = (function () {
         }
         if (pct == null || pct >= 100) return;
         // nom = 1er libelle CoreText qui n'est PAS un texte de progression ("56% de 30 minutes"...).
-        // On ecarte aussi les recompenses expirees ("Cette recompense n'est plus disponible").
+        // On ecarte les recompenses expirees, et on capte la duree totale pour estimer le temps restant.
         const isProgress = (t) => /%/.test(t) || /^\d+\s*(min|h|heure|jour|sec|de\b)/i.test(t);
         const UNAVAILABLE = /n['’]est plus disponible|plus disponible|no longer available|expir/i;
-        let el = bar; let name = ''; let bad = false;
-        for (let i = 0; i < 7 && el && !name && !bad; i++) {
+        const parseTotalMin = (t) => {
+          const after = t.split(/\bde\b|\bof\b/i).pop();          // "X% de Y minutes" -> on prend Y
+          const mm = (after || t).match(/(\d+(?:[.,]\d+)?)\s*(h|heure|hour|min)/i);
+          if (!mm) return null;
+          const n = parseFloat(mm[1].replace(',', '.'));
+          return /^h/i.test(mm[2]) ? Math.round(n * 60) : Math.round(n);
+        };
+        let el = bar; let name = ''; let bad = false; let totalMin = null;
+        for (let i = 0; i < 7 && el && (!name || totalMin == null) && !bad; i++) {
           if (el.querySelectorAll) {
             el.querySelectorAll('p[class*="CoreText"], [role="heading"], h3, h4').forEach((p) => {
               const t = (p.textContent || '').trim();
               if (UNAVAILABLE.test(t)) bad = true;
-              else if (!name && t.length >= 3 && t.length <= 80 && !isProgress(t) && !/ic[oô]ne|image/i.test(t)) name = t;
+              else if (isProgress(t)) { if (totalMin == null) { const d = parseTotalMin(t); if (d) totalMin = d; } }
+              else if (!name && t.length >= 3 && t.length <= 80 && !/ic[oô]ne|image/i.test(t)) name = t;
             });
           }
           el = el.parentElement;
         }
         if (bad) return; // recompense expiree -> on ne l'affiche pas
-        list.push({ name, percent: Math.max(0, Math.min(100, pct)) });
+        const remainingMin = (totalMin != null) ? Math.max(0, Math.round(totalMin * (1 - pct / 100))) : null;
+        list.push({ name, percent: Math.max(0, Math.min(100, pct)), remainingMin });
       });
       send({ type: 'inprogress', list: list.slice(0, 12) });
     } catch (e) { TA.log.error('tracker', e); }
