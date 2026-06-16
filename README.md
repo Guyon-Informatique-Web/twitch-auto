@@ -85,6 +85,7 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 
 ## Changelog
 
+- v1.8.2 : anti-pause instantane - ecoute l'evenement 'pause' de la video (non throttle) pour relancer des que Twitch met en pause au changement d'onglet (avec garde anti-boucle).
 - v1.8.1 : anti-pause renforce - les onglets de fond dont la lecture est refusee par Chrome (autoplay avec son bloque) sont relances en muet, pour qu'ils jouent vraiment et farment.
 - v1.8.0 : les Drops progressent maintenant sur TOUS les onglets en parallele (pas seulement l'onglet actif). Un script injecte dans le contexte de la page fait croire a Twitch que chaque onglet est visible ; nos modules (mute/qualite/anti-pause) voient toujours la vraie visibilite (monde isole separe).
 - v1.7.1 : "Drops en cours" masque les recompenses expirees ("Cette recompense n'est plus disponible").
