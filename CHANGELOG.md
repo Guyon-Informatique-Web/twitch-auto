@@ -1,0 +1,28 @@
+# Changelog
+
+- v1.9.1 : recale le selecteur du solde de points (nombre anime dans le bouton de points) -> le gain de points reel fonctionne meme quand le streamer renomme ses points.
+- v1.9.0 : ETA (temps restant estime) a cote de chaque drop en cours ; bouton "Tester les selecteurs" dans Reglages (diagnostic quand Twitch change son interface) ; option "Inventaire auto" qui garde/ouvre l'onglet inventaire en arriere-plan.
+- v1.8.3 : empeche carrement la mise en pause des onglets en arriere-plan (override de video.pause() dans le contexte de la page quand l'onglet est cache) -> plus de tug-of-war avec Twitch.
+- v1.8.2 : anti-pause instantane - ecoute l'evenement 'pause' de la video (non throttle) pour relancer des que Twitch met en pause au changement d'onglet (avec garde anti-boucle).
+- v1.8.1 : anti-pause renforce - les onglets de fond dont la lecture est refusee par Chrome (autoplay avec son bloque) sont relances en muet, pour qu'ils jouent vraiment et farment.
+- v1.8.0 : les Drops progressent maintenant sur TOUS les onglets en parallele (pas seulement l'onglet actif). Un script injecte dans le contexte de la page fait croire a Twitch que chaque onglet est visible ; nos modules (mute/qualite/anti-pause) voient toujours la vraie visibilite (monde isole separe).
+- v1.7.1 : "Drops en cours" masque les recompenses expirees ("Cette recompense n'est plus disponible").
+- v1.7.0 : module Anti-pause - relance la lecture des onglets en arriere-plan mis en pause (Chrome/Twitch pausent parfois les onglets inactifs), sans toucher l'onglet regarde.
+- v1.6.3 : corrige "Drops en cours" qui disparaissait au reload de l'inventaire (on ignore le vidage transitoire pendant 6 min) ; un onglet sur une chaine compte comme actif meme pendant une pub (le temps de visionnage ne monte que si ca joue).
+- v1.6.2 : "Drops en cours" trie par progression decroissante (le plus avance en haut).
+- v1.6.1 : "Drops en cours" affiche le vrai nom du drop (ignore le texte de progression "X% de Y minutes").
+- v1.6.0 : popup reorganise en 3 onglets (Stats / Historique / Reglages). Le toggle general reste en tete, visible partout.
+- v1.5.0 : suivi du temps de visionnage + nombre d'onglets actifs, vue "drops en cours" (% de progression), stats par chaine (top chaines), et auto-switch vers une chaine de repli quand le stream regarde passe hors-ligne (toggle + URL de repli, opt-in).
+- v1.4.1 : bouton "exporter" (sauvegarde compteurs + historique en JSON) ; permission api.github.com conservee pour garantir la notif de MAJ chez les amis.
+- v1.4.0 : gros pack qualite. Bugs : qualite 160p restauree au 1er plan, drops anti-boucle a fenetre glissante + refresh inventaire SPA-safe, alarme de MAJ fiable, gain de points reel, formatCompact. Drops : reclamation aussi depuis le bandeau "drop pret" sur un stream. Perf : observer allege, scans cibles. UX/accessibilite : toggle au clavier, confirmation du reset, infobulles, regions live. Securite : ecritures storage serialisees, throttle erreurs persistant, URL de telechargement validee.
+- v1.3.4 : corrige la banniere de MAJ qui restait affichee en permanence.
+- v1.3.3 : la banniere de mise a jour disparait des qu'on est sur la derniere version.
+- v1.3.2 : le mute des onglets en arriere-plan se fait au niveau de l'onglet (evite de mettre le stream en pause).
+- v1.3.1 : bouton "Telecharger la MAJ" dans le popup.
+- v1.3.0 : verificateur de mise a jour integre (compare la derniere release GitHub a la version installee).
+- v1.2.3 : detection du nom de drop plus robuste.
+- v1.2.2 : nom du drop lu depuis le bon paragraphe (CoreText).
+- v1.2.1 : reclame TOUS les drops disponibles (plus un seul) ; auto-refresh de l'inventaire aussi au premier plan.
+- v1.2.0 : auto-refresh de l'inventaire en arriere-plan (toutes les 5 min).
+- v1.1.0 : historique des drops (avec nom) et paliers de points ; ID d'extension epingle (stockage qui survit a un deplacement du dossier).
+- v1.0.0 : version initiale (points, drops, reload, quality, antiAfk, mute, notifications, popup).
