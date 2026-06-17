@@ -53,7 +53,7 @@ Icones : [Lucide](https://lucide.dev) / [Feather](https://feathericons.com) (lic
 
 ## Soutenir le projet
 
-Twitch Auto est gratuit. Si l'extension t'est utile, tu peux soutenir son developpement : [Faire un don](https://guyon-informatique-web.fr) &#10084;
+Twitch Auto est gratuit. Si l'extension t'est utile, tu peux soutenir son developpement sur Ko-fi : **[ko-fi.com/vguyondev](https://ko-fi.com/vguyondev)** &#10084;
 
 ## Avertissement
 
