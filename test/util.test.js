@@ -1,14 +1,22 @@
 const assert = require('assert');
 const { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle } = require('../src/shared/util.js');
+const { t: tr, resolveLang, normLang, detectLang } = require('../src/shared/i18n.js');
 
-// formatRelativeTime(ts, now)
+// formatRelativeTime(ts, now) -> francais par defaut (retrocompatible)
 assert.strictEqual(formatRelativeTime(null, 1000), 'jamais');
 assert.strictEqual(formatRelativeTime(1000, 1000 + 30 * 1000), 'a l instant');
 assert.strictEqual(formatRelativeTime(0, 5 * 60 * 1000), 'il y a 5 min');
 assert.strictEqual(formatRelativeTime(0, 3 * 60 * 60 * 1000), 'il y a 3 h');
 assert.strictEqual(formatRelativeTime(0, 2 * 24 * 60 * 60 * 1000), 'il y a 2 j');
 
-// formatCompact(n)
+// formatRelativeTime(ts, now, 'en') -> anglais
+assert.strictEqual(formatRelativeTime(null, 1000, 'en'), 'never');
+assert.strictEqual(formatRelativeTime(1000, 1000 + 30 * 1000, 'en'), 'just now');
+assert.strictEqual(formatRelativeTime(0, 5 * 60 * 1000, 'en'), '5 min ago');
+assert.strictEqual(formatRelativeTime(0, 3 * 60 * 60 * 1000, 'en'), '3 h ago');
+assert.strictEqual(formatRelativeTime(0, 2 * 24 * 60 * 60 * 1000, 'en'), '2 d ago');
+
+// formatCompact(n) -> separateur ',' en francais (defaut)
 assert.strictEqual(formatCompact(10), '10');
 assert.strictEqual(formatCompact(100), '100');
 assert.strictEqual(formatCompact(999), '999');
@@ -17,6 +25,26 @@ assert.strictEqual(formatCompact(5921), '5,9K');
 assert.strictEqual(formatCompact(10000), '10K');
 assert.strictEqual(formatCompact(1171270), '1,2M');
 assert.strictEqual(formatCompact(999999), '1M');
+
+// formatCompact(n, 'en') -> separateur '.'
+assert.strictEqual(formatCompact(5921, 'en'), '5.9K');
+assert.strictEqual(formatCompact(1171270, 'en'), '1.2M');
+assert.strictEqual(formatCompact(1000, 'en'), '1K');
+
+// i18n : normalisation, resolution et interpolation
+assert.strictEqual(normLang('en-US'), 'en');
+assert.strictEqual(normLang('fr-FR'), 'fr');
+assert.strictEqual(normLang('de'), null);
+assert.strictEqual(resolveLang({ lang: 'en' }), 'en');
+assert.strictEqual(resolveLang({ lang: 'fr' }), 'fr');
+assert.strictEqual(['fr', 'en'].includes(resolveLang({})), true); // auto (navigator absent -> 'fr')
+assert.strictEqual(['fr', 'en'].includes(detectLang()), true);
+assert.strictEqual(tr('fr', 'ui.tab.settings'), 'Reglages');
+assert.strictEqual(tr('en', 'ui.tab.settings'), 'Settings');
+assert.strictEqual(tr('en', 'hist.pointsTier', { n: '5K' }), '5K points milestone');
+assert.strictEqual(tr('fr', 'hist.pointsTier', { n: '5K' }), 'Palier 5K points');
+assert.strictEqual(tr('en', 'notif.drop.bodyNamed', { name: 'Skin X' }), 'Drop: Skin X');
+assert.strictEqual(tr('en', 'cle.inexistante'), 'cle.inexistante'); // repli sur la cle brute
 
 // compareVersions(a, b)
 assert.strictEqual(compareVersions('1.2.3', '1.2.3'), 0);
@@ -37,4 +65,4 @@ assert.strictEqual(t('a', 500), false);
 assert.strictEqual(t('a', 1500), true);
 assert.strictEqual(t('b', 1500), true);
 
-console.log('OK util');
+console.log('OK util + i18n');

@@ -1,4 +1,4 @@
-// Pilote du popup : compteurs, reglages, historique, reset, inventaire, MAJ.
+// Pilote du popup : compteurs, reglages, historique, reset, inventaire, MAJ, langue.
 // Icones : jeu Lucide / Feather (licence ISC/MIT).
 
 const ICONS = {
@@ -14,23 +14,43 @@ const ICONS = {
   package: '<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'
 };
 
-// [cle de reglage, libelle, icone, description (infobulle)]
+// [cle de reglage, icone] ; libelle et infobulle viennent du dictionnaire i18n (feat.<cle>).
 const FEATURES = [
-  ['points', 'Points', ICONS.gem, 'Reclame les coffres bonus de points de chaine.'],
-  ['drops', 'Drops', ICONS.gift, 'Reclame les drops termines (inventaire + bandeau sur le stream).'],
-  ['reload', 'Reload auto', ICONS.reload, 'Recharge le player quand il affiche une erreur.'],
-  ['lowQuality', 'Qualite mini', ICONS.quality, 'Passe la video en 160p sur les onglets en arriere-plan.'],
-  ['antiAfk', 'Anti-AFK', ICONS.eye, 'Clique les fenetres "Toujours la ?" et le contenu sensible.'],
-  ['muteBackground', 'Mute fond', ICONS.mute, 'Coupe le son des onglets en arriere-plan.'],
-  ['keepAlive', 'Anti-pause', ICONS.play, 'Relance la lecture des onglets en arriere-plan s ils se mettent en pause.'],
-  ['autoInventory', 'Inventaire auto', ICONS.package, 'Garde/ouvre l onglet inventaire des drops en arriere-plan pour reclamer sans y penser.'],
-  ['notifications', 'Notifications', ICONS.bell, 'Notification desktop sur drop / palier de points.'],
-  ['autoSwitch', 'Auto-switch', ICONS.shuffle, 'Bascule vers une chaine de repli si le stream passe hors-ligne (regle l URL ci-dessous).']
+  ['points', ICONS.gem],
+  ['drops', ICONS.gift],
+  ['reload', ICONS.reload],
+  ['lowQuality', ICONS.quality],
+  ['antiAfk', ICONS.eye],
+  ['muteBackground', ICONS.mute],
+  ['keepAlive', ICONS.play],
+  ['autoInventory', ICONS.package],
+  ['notifications', ICONS.bell],
+  ['autoSwitch', ICONS.shuffle]
 ];
 const EMPTY_STATS = { pointsClaimed: 0, pointsValue: 0, lastPointsClaim: null, dropsClaimed: 0, lastDropsClaim: null };
 const RELEASES_URL = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/latest';
 const DL_PREFIX = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/download/';
 let lastUpdate = null; // derniere info de MAJ connue (pour le bouton telecharger)
+let currentLang = 'fr'; // langue active du popup (resolue depuis settings.lang ou auto)
+const t = (key, vars) => TAi18n.t(currentLang, key, vars);
+
+// Applique les libelles statiques (attributs data-i18n*) dans la langue courante.
+function applyStaticI18n() {
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-aria]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  document.documentElement.lang = currentLang;
+}
+
+// Surligne le drapeau de la langue active.
+function setLangButtons(lang) {
+  document.querySelectorAll('.lang-btn').forEach((b) => {
+    const on = b.dataset.lang === lang;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
 
 // Construit une icone SVG (sans innerHTML). extraClass : classe de couleur optionnelle.
 function makeIcon(inner, extraClass) {
@@ -55,7 +75,9 @@ function renderFeatures(settings) {
   const wrap = document.getElementById('features');
   wrap.replaceChildren();
   const disabled = settings.enabled === false;
-  FEATURES.forEach(([key, label, icon, desc]) => {
+  FEATURES.forEach(([key, icon]) => {
+    const label = t('feat.' + key);
+    const desc = t('feat.' + key + '.desc');
     const row = document.createElement('label');
     row.className = 'feature';
     if (desc) row.title = desc;
@@ -78,7 +100,7 @@ function renderHistory(history, now) {
   if (!history || !history.length) {
     const p = document.createElement('p');
     p.className = 'hist-empty';
-    p.textContent = 'Rien encore reclame';
+    p.textContent = t('hist.empty');
     wrap.appendChild(p);
     return;
   }
@@ -90,12 +112,12 @@ function renderHistory(history, now) {
     const label = document.createElement('span');
     label.className = 'hist-label';
     label.textContent = isDrop
-      ? (e.name || 'Drop reclame')
-      : `Palier ${TAUtil.formatCompact(e.amount || 0)} points`;
+      ? (e.name || t('hist.dropDefault'))
+      : t('hist.pointsTier', { n: TAUtil.formatCompact(e.amount || 0, currentLang) });
     label.title = label.textContent; // nom complet au survol (les longs sont tronques)
     const time = document.createElement('span');
     time.className = 'hist-time';
-    time.textContent = TAUtil.formatRelativeTime(e.ts, now);
+    time.textContent = TAUtil.formatRelativeTime(e.ts, now, currentLang);
     row.append(makeIcon(isDrop ? ICONS.gift : ICONS.gem, isDrop ? 'gold' : 'cyan'), label, time);
     wrap.appendChild(row);
   });
@@ -114,9 +136,9 @@ function renderMeta(stats) {
   const hb = stats.heartbeats || {};
   let active = 0;
   for (const k in hb) { if (now - hb[k] < 150000) active += 1; }
-  const s = active > 1 ? 's' : '';
+  const s = active > 1 ? 's' : ''; // pluriel FR (onglets/actifs) et EN (tabs)
   document.getElementById('meta').textContent =
-    `${fmtDuration(stats.watchSeconds)} de visionnage - ${active} onglet${s} actif${s}`;
+    t('meta.watch', { dur: fmtDuration(stats.watchSeconds), n: active, s });
 }
 
 function renderInProgress(list) {
@@ -129,7 +151,7 @@ function renderInProgress(list) {
   list.slice().sort((a, b) => (b.percent || 0) - (a.percent || 0)).slice(0, 8).forEach((d) => {
     const row = document.createElement('div'); row.className = 'ip-row';
     const name = document.createElement('span'); name.className = 'ip-name';
-    name.textContent = d.name || 'Drop'; name.title = name.textContent;
+    name.textContent = d.name || t('inprog.defaultName'); name.title = name.textContent;
     const bar = document.createElement('div'); bar.className = 'ip-bar';
     const fill = document.createElement('div'); fill.className = 'ip-fill';
     fill.style.width = Math.max(0, Math.min(100, d.percent || 0)) + '%';
@@ -163,7 +185,7 @@ function renderChannels(byChannel) {
     name.textContent = c.name; name.title = c.name;
     const stat = document.createElement('span'); stat.className = 'ch-stat';
     const parts = [];
-    if (c.points) parts.push(TAUtil.formatCompact(c.points) + ' pts');
+    if (c.points) parts.push(TAUtil.formatCompact(c.points, currentLang) + ' pts');
     if (c.drops) parts.push(c.drops + ' drop' + (c.drops > 1 ? 's' : ''));
     stat.textContent = parts.join(' - ');
     row.append(name, stat);
@@ -176,12 +198,17 @@ async function load() {
     await chrome.storage.local.get(['settings', 'stats', 'history', 'lastError', 'update']);
   const now = Date.now();
 
+  // Langue effective d'abord : conditionne tous les libelles ci-dessous.
+  currentLang = TAi18n.resolveLang(settings);
+  applyStaticI18n();
+  setLangButtons(currentLang);
+
   // Banniere affichee seulement si la version dispo est STRICTEMENT plus recente que l'installee.
   const installed = chrome.runtime.getManifest().version;
   const banner = document.getElementById('update-banner');
   if (upd && upd.version && TAUtil.compareVersions(upd.version, installed) > 0) {
     banner.hidden = false;
-    document.getElementById('update-text').textContent = `Nouvelle version v${upd.version} dispo`;
+    document.getElementById('update-text').textContent = t('update.bannerNew', { v: upd.version });
     lastUpdate = upd;
   } else {
     banner.hidden = true;
@@ -191,10 +218,10 @@ async function load() {
   document.getElementById('master').checked = settings.enabled !== false;
   document.body.classList.toggle('off', settings.enabled === false);
 
-  document.getElementById('points-value').textContent = TAUtil.formatCompact(stats.pointsValue || 0);
-  document.getElementById('points-last').textContent = TAUtil.formatRelativeTime(stats.lastPointsClaim, now);
-  document.getElementById('drops-value').textContent = TAUtil.formatCompact(stats.dropsClaimed || 0);
-  document.getElementById('drops-last').textContent = TAUtil.formatRelativeTime(stats.lastDropsClaim, now);
+  document.getElementById('points-value').textContent = TAUtil.formatCompact(stats.pointsValue || 0, currentLang);
+  document.getElementById('points-last').textContent = TAUtil.formatRelativeTime(stats.lastPointsClaim, now, currentLang);
+  document.getElementById('drops-value').textContent = TAUtil.formatCompact(stats.dropsClaimed || 0, currentLang);
+  document.getElementById('drops-last').textContent = TAUtil.formatRelativeTime(stats.lastDropsClaim, now, currentLang);
 
   renderFeatures(settings);
   renderMeta(stats);
@@ -208,7 +235,7 @@ async function load() {
   if (document.activeElement !== asInput) asInput.value = settings.autoSwitchUrl || '';
 
   document.getElementById('diag').textContent = lastError
-    ? `Derniere erreur (${lastError.module}) : ${lastError.message}`
+    ? t('diag.lastError', { module: lastError.module, message: lastError.message })
     : '';
 }
 
@@ -223,8 +250,7 @@ document.getElementById('update-dl').addEventListener('click', () => {
   // On ne telecharge que depuis une URL de release de NOTRE repo (sinon on ouvre la page).
   if (lastUpdate && lastUpdate.url && lastUpdate.url.startsWith(DL_PREFIX)) {
     chrome.downloads.download({ url: lastUpdate.url });
-    document.getElementById('update-hint').textContent =
-      "Telecharge ! Dezippe par-dessus ton dossier, puis recharge l'extension.";
+    document.getElementById('update-hint').textContent = t('update.downloaded');
   } else {
     chrome.tabs.create({ url: RELEASES_URL });
   }
@@ -232,25 +258,31 @@ document.getElementById('update-dl').addEventListener('click', () => {
 
 document.getElementById('autoswitch-url').addEventListener('change', (e) => update('autoSwitchUrl', e.target.value.trim()));
 
+// Choix de la langue : clic sur un drapeau -> enregistre settings.lang et recharge.
+document.querySelectorAll('.lang-btn').forEach((b) => {
+  b.addEventListener('click', () => update('lang', b.dataset.lang));
+});
+
 document.getElementById('diag-test-btn').addEventListener('click', async () => {
   const out = document.getElementById('diag-result');
-  out.textContent = 'Test en cours...';
+  out.textContent = t('diag.running');
   let tab;
   try { [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); } catch (e) { /* */ }
   if (!tab || !/^https:\/\/www\.twitch\.tv\//.test(tab.url || '')) {
-    out.textContent = "Ouvre une page Twitch (onglet actif) et relance le test.";
+    out.textContent = t('diag.needTwitch');
     return;
   }
   try {
     const r = await chrome.tabs.sendMessage(tab.id, { type: 'diagnose' });
-    if (!r) { out.textContent = 'Pas de reponse - recharge la page Twitch puis reessaie.'; return; }
-    const yn = (b) => (b ? 'OK' : 'absent');
-    out.textContent =
-      `Points: ${yn(r.points)}  |  Solde: ${yn(r.pointsBalance)}\n` +
-      `Drop selecteur: ${yn(r.dropSelector)}  |  Drop texte: ${yn(r.dropText)}\n` +
-      `Overlay player: ${yn(r.playerOverlay)}  |  Barres progression: ${r.progressBars}`;
+    if (!r) { out.textContent = t('diag.noResponse'); return; }
+    const yn = (b) => (b ? t('diag.ok') : t('diag.missing'));
+    out.textContent = t('diag.result', {
+      points: yn(r.points), balance: yn(r.pointsBalance),
+      dropSel: yn(r.dropSelector), dropText: yn(r.dropText),
+      overlay: yn(r.playerOverlay), bars: r.progressBars
+    });
   } catch (e) {
-    out.textContent = 'Pas de reponse - recharge la page Twitch puis reessaie.';
+    out.textContent = t('diag.noResponse');
   }
 });
 document.getElementById('master').addEventListener('change', (e) => update('enabled', e.target.checked));
@@ -269,11 +301,11 @@ document.getElementById('export').addEventListener('click', async () => {
 let resetArmed = false;
 let resetTimer = null;
 const resetBtn = document.getElementById('reset');
-function disarmReset() { resetArmed = false; resetBtn.textContent = 'reinitialiser'; }
+function disarmReset() { resetArmed = false; resetBtn.textContent = t('ui.reset'); }
 resetBtn.addEventListener('click', async () => {
   if (!resetArmed) {
     resetArmed = true;
-    resetBtn.textContent = 'Confirmer ? (efface tout)';
+    resetBtn.textContent = t('ui.resetConfirm');
     resetTimer = setTimeout(disarmReset, 3000);
     return;
   }
@@ -287,16 +319,16 @@ document.getElementById('version').textContent = 'v' + chrome.runtime.getManifes
 
 // Onglets : Stats / Historique / Reglages.
 function showTab(name) {
-  document.querySelectorAll('.tab').forEach((t) => {
-    const on = t.dataset.tab === name;
-    t.classList.toggle('active', on);
-    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  document.querySelectorAll('.tab').forEach((tab) => {
+    const on = tab.dataset.tab === name;
+    tab.classList.toggle('active', on);
+    tab.setAttribute('aria-selected', on ? 'true' : 'false');
   });
   ['stats', 'history', 'settings'].forEach((n) => {
     document.getElementById('tab-' + n).hidden = (n !== name);
   });
 }
-document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+document.querySelectorAll('.tab').forEach((tab) => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
 showTab('stats');
 
 // Rafraichit le popup en direct quand compteurs/reglages/historique/MAJ changent.
@@ -304,4 +336,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && (changes.stats || changes.settings || changes.history || changes.lastError || changes.update)) load();
 });
 
+// Premier rendu : libelles dans la langue auto avant meme le retour du storage (anti-flash),
+// puis load() affine avec le choix explicite eventuel (settings.lang).
+currentLang = TAi18n.detectLang();
+applyStaticI18n();
+setLangButtons(currentLang);
 load();

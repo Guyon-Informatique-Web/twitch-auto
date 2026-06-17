@@ -8,7 +8,7 @@
   <header class="head">
     <img src="../../icons/icon-32.png" alt="" width="28" height="28">
     <h1>Twitch Auto</h1>
-    <label class="switch" title="Activer / desactiver">
+    <label class="switch" data-i18n-title="ui.toggle" title="Activer / desactiver">
       <input type="checkbox" id="master">
       <span class="slider"></span>
     </label>
@@ -16,31 +16,31 @@
 
   <div id="update-banner" class="update-banner" aria-live="polite" hidden>
     <span id="update-text"></span>
-    <button id="update-dl" class="update-dl">Telecharger la MAJ</button>
+    <button id="update-dl" class="update-dl" data-i18n="ui.updateDl">Telecharger la MAJ</button>
     <span id="update-hint" class="update-hint"></span>
   </div>
 
   <nav class="tabs" role="tablist">
-    <button class="tab active" data-tab="stats" role="tab" aria-selected="true">Stats</button>
-    <button class="tab" data-tab="history" role="tab" aria-selected="false">Historique</button>
-    <button class="tab" data-tab="settings" role="tab" aria-selected="false">Reglages</button>
+    <button class="tab active" data-tab="stats" role="tab" aria-selected="true" data-i18n="ui.tab.stats">Stats</button>
+    <button class="tab" data-tab="history" role="tab" aria-selected="false" data-i18n="ui.tab.history">Historique</button>
+    <button class="tab" data-tab="settings" role="tab" aria-selected="false" data-i18n="ui.tab.settings">Reglages</button>
   </nav>
 
   <!-- Onglet STATS -->
   <!-- Icones : jeu Lucide (https://lucide.dev), licence ISC -->
   <div class="panel" id="tab-stats">
     <section class="stats" aria-live="polite">
-      <div class="stat" aria-label="Points reclames">
+      <div class="stat" data-i18n-aria="ui.aria.points" aria-label="Points reclames">
         <svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#00e0c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 3h12l4 6-10 13L2 9Z"/>
           <path d="M11 3 8 9l4 13 4-13-3-6"/>
           <path d="M2 9h20"/>
         </svg>
         <span class="val cyan" id="points-value">0</span>
-        <span class="stat-label">Points</span>
+        <span class="stat-label" data-i18n="ui.stat.points">Points</span>
         <span class="last" id="points-last">jamais</span>
       </div>
-      <div class="stat" aria-label="Drops reclames">
+      <div class="stat" data-i18n-aria="ui.aria.drops" aria-label="Drops reclames">
         <svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#ffc83d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="8" width="18" height="4" rx="1"/>
           <path d="M12 8v13"/>
@@ -48,7 +48,7 @@
           <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>
         </svg>
         <span class="val gold" id="drops-value">0</span>
-        <span class="stat-label">Drops</span>
+        <span class="stat-label" data-i18n="ui.stat.drops">Drops</span>
         <span class="last" id="drops-last">jamais</span>
       </div>
     </section>
@@ -56,17 +56,17 @@
     <p class="meta" id="meta"></p>
 
     <section id="inprogress-section" hidden>
-      <h2>Drops en cours</h2>
+      <h2 data-i18n="ui.inProgress">Drops en cours</h2>
       <div id="inprogress"></div>
     </section>
 
     <section id="channels-section" hidden>
-      <h2>Top chaines</h2>
+      <h2 data-i18n="ui.topChannels">Top chaines</h2>
       <div id="channels"></div>
     </section>
 
     <footer class="foot">
-      <button id="open-inventory" class="btn">Ouvrir mon inventaire de drops</button>
+      <button id="open-inventory" class="btn" data-i18n="ui.openInventory">Ouvrir mon inventaire de drops</button>
     </footer>
   </div>
 
@@ -77,16 +77,51 @@
 
   <!-- Onglet REGLAGES -->
   <div class="panel" id="tab-settings" hidden>
+    <!-- Choix de la langue : drapeaux colores FR / EN (US) -->
+    <div class="lang-row">
+      <span class="lang-label" data-i18n="ui.langLabel">Langue</span>
+      <div class="lang-select" role="group" data-i18n-aria="ui.langLabel" aria-label="Langue">
+        <button class="lang-btn" data-lang="fr" type="button" title="Francais" aria-label="Francais" aria-pressed="false">
+          <svg class="flag" viewBox="0 0 24 16" width="26" height="17" aria-hidden="true">
+            <rect width="24" height="16" fill="#ffffff"/>
+            <rect width="8" height="16" fill="#0055a4"/>
+            <rect x="16" width="8" height="16" fill="#ef4135"/>
+          </svg>
+        </button>
+        <button class="lang-btn" data-lang="en" type="button" title="English" aria-label="English" aria-pressed="false">
+          <svg class="flag" viewBox="0 0 24 16" width="26" height="17" aria-hidden="true">
+            <rect width="24" height="16" fill="#ffffff"/>
+            <g fill="#b22234">
+              <rect y="0" width="24" height="1.231"/>
+              <rect y="2.462" width="24" height="1.231"/>
+              <rect y="4.923" width="24" height="1.231"/>
+              <rect y="7.385" width="24" height="1.231"/>
+              <rect y="9.846" width="24" height="1.231"/>
+              <rect y="12.308" width="24" height="1.231"/>
+              <rect y="14.769" width="24" height="1.231"/>
+            </g>
+            <rect width="9.6" height="8.615" fill="#3c3b6e"/>
+            <g fill="#ffffff">
+              <circle cx="1.5" cy="1.4" r="0.42"/><circle cx="3.6" cy="1.4" r="0.42"/><circle cx="5.7" cy="1.4" r="0.42"/><circle cx="7.8" cy="1.4" r="0.42"/>
+              <circle cx="1.5" cy="3.2" r="0.42"/><circle cx="3.6" cy="3.2" r="0.42"/><circle cx="5.7" cy="3.2" r="0.42"/><circle cx="7.8" cy="3.2" r="0.42"/>
+              <circle cx="1.5" cy="5.0" r="0.42"/><circle cx="3.6" cy="5.0" r="0.42"/><circle cx="5.7" cy="5.0" r="0.42"/><circle cx="7.8" cy="5.0" r="0.42"/>
+              <circle cx="1.5" cy="6.8" r="0.42"/><circle cx="3.6" cy="6.8" r="0.42"/><circle cx="5.7" cy="6.8" r="0.42"/><circle cx="7.8" cy="6.8" r="0.42"/>
+            </g>
+          </svg>
+        </button>
+      </div>
+    </div>
+
     <section>
       <div id="features" class="features"></div>
     </section>
 
     <div id="autoswitch-row" class="as-row" hidden>
-      <input id="autoswitch-url" type="text" placeholder="URL de repli (ex: https://www.twitch.tv/maChaine)">
+      <input id="autoswitch-url" type="text" data-i18n-ph="ui.autoswitchPh" placeholder="URL de repli (ex: https://www.twitch.tv/maChaine)">
     </div>
 
     <div class="diag-test">
-      <button id="diag-test-btn" class="btn-sec">Tester les selecteurs (sur une page Twitch)</button>
+      <button id="diag-test-btn" class="btn-sec" data-i18n="ui.diagTest">Tester les selecteurs (sur une page Twitch)</button>
       <p id="diag-result" class="diag-result"></p>
     </div>
 
@@ -95,16 +130,17 @@
     <div class="foot-row settings-foot">
       <span id="version">v1.0.0</span>
       <span class="foot-actions">
-        <button id="export" class="link">exporter</button>
-        <button id="reset" class="link">reinitialiser</button>
+        <button id="export" class="link" data-i18n="ui.export">exporter</button>
+        <button id="reset" class="link" data-i18n="ui.reset">reinitialiser</button>
       </span>
     </div>
 
     <!-- Lien de don Ko-fi -->
-    <a class="donate" href="https://ko-fi.com/vguyondev" target="_blank" rel="noopener">&#10084; Faire un don</a>
+    <a class="donate" href="https://ko-fi.com/vguyondev" target="_blank" rel="noopener">&#10084; <span data-i18n="ui.donate">Faire un don</span></a>
   </div>
 
   <script src="../shared/util.js"></script>
+  <script src="../shared/i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

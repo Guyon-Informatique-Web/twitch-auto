@@ -1,5 +1,6 @@
 # Changelog
 
+- v1.10.0 : interface bilingue FR / EN. Selecteur de langue a drapeaux colores (France / Etats-Unis) dans l'onglet Reglages ; le popup ET les notifications desktop suivent le choix (auto-detecte depuis le navigateur par defaut). Tous les textes d'interface centralises dans `src/shared/i18n.js`. README anglais (`README.en.md`).
 - v1.9.3 : lien de don pointe vers Ko-fi (ko-fi.com/vguyondev).
 - v1.9.2 : lien "Faire un don" dans le popup (onglet Reglages) et le README.
 - v1.9.1 : recale le selecteur du solde de points (nombre anime dans le bouton de points) -> le gain de points reel fonctionne meme quand le streamer renomme ses points.

@@ -100,6 +100,19 @@ section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); ma
 .btn-sec:hover { border-color: var(--purple); }
 .diag-result { font-size: 11px; color: var(--muted); margin: 6px 0 0; white-space: pre-wrap; }
 
+/* Selecteur de langue (drapeaux) */
+.lang-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 12px; margin-bottom: 4px; border-bottom: 1px solid #2a2a2e; }
+.lang-label { font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
+.lang-select { display: flex; gap: 8px; }
+.lang-btn {
+  display: flex; padding: 2px; border: 2px solid transparent; border-radius: 5px;
+  background: none; cursor: pointer; line-height: 0; opacity: .55; transition: opacity .15s, border-color .15s;
+}
+.lang-btn:hover { opacity: .9; }
+.lang-btn.active { opacity: 1; border-color: var(--purple); }
+.lang-btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.lang-btn .flag { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+
 .diag { color: #ff6b6b; font-size: 11px; margin: 0 16px; min-height: 14px; }
 
 .foot { padding: 8px 16px 16px; }

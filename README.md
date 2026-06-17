@@ -1,5 +1,7 @@
 # Twitch Auto
 
+**Francais** - [English](README.en.md)
+
 Extension Chrome (Manifest V3) qui automatise Twitch : auto-claim des **points de chaine** et des **drops**, **farming multi-onglets** en arriere-plan, reload auto du player, et de nombreuses aides AFK. Le tout dans un popup clair a 3 onglets.
 
 > Usage **personnel**. Extension chargee en mode developpeur (non publiee sur le Chrome Web Store).
@@ -15,6 +17,7 @@ Extension Chrome (Manifest V3) qui automatise Twitch : auto-claim des **points d
 - **Qualite mini** (160p) et **mute** sur les onglets en arriere-plan, **anti-AFK** (gates "toujours la" / contenu sensible), **anti-pause**.
 - **Suivi** : temps de visionnage, onglets actifs, drops en cours avec % et **temps restant estime (ETA)**, stats par chaine, historique.
 - **Notifications**, **export** de l'historique, **auto-MAJ**, **inventaire auto**, **auto-switch** vers une chaine de repli.
+- **Interface bilingue (FR / EN)** : selecteur de langue a drapeaux dans l'onglet Reglages ; le popup et les notifications desktop suivent ton choix (auto-detecte depuis ton navigateur par defaut).
 
 ## Installation
 
@@ -40,6 +43,7 @@ Grace a la cle d'ID epinglee dans le manifest, le stockage (compteurs, historiqu
 
 - **Sans build** : HTML/CSS/JS vanilla, chargeable tel quel.
 - **Tous les selecteurs Twitch** sont centralises dans `src/content/selectors.js` : c'est le seul fichier a corriger quand Twitch change son interface.
+- **Tous les textes d'interface** sont centralises dans `src/shared/i18n.js` (dictionnaire FR / EN) : seul fichier a editer pour ajuster ou ajouter une traduction.
 - **Diagnostic** : le bouton "Tester les selecteurs" (onglet Reglages), lance sur une page Twitch, indique ce que l'extension trouve.
 - **Tests** des fonctions pures : `node test/util.test.js`.
 

@@ -1,5 +1,5 @@
 // Service worker : reglages par defaut, compteurs, notifications, badge, alertes erreur, MAJ.
-importScripts('../shared/util.js');
+importScripts('../shared/util.js', '../shared/i18n.js');
 
 const DEFAULT_SETTINGS = {
   enabled: true,
@@ -102,13 +102,15 @@ async function checkUpdate() {
     const remote = String(data.tag_name || '').replace(/^v/, '');
     if (!remote) return;
     const current = chrome.runtime.getManifest().version;
-    const prev = (await chrome.storage.local.get('update')).update;
+    const store = await chrome.storage.local.get(['update', 'settings']);
+    const prev = store.update;
     if (TAUtil.compareVersions(remote, current) > 0) {
       const asset = (data.assets || []).find((a) => a.name && a.name.toLowerCase().endsWith('.zip'));
       const url = asset ? asset.browser_download_url : '';
       await chrome.storage.local.set({ update: { available: true, version: remote, url } });
       if (!prev || prev.version !== remote) {
-        notify('Mise a jour disponible', `Twitch Auto v${remote} est disponible. Ouvre le popup pour la recuperer.`);
+        const lang = TAi18n.resolveLang(store.settings);
+        notify(TAi18n.t(lang, 'notif.update.title'), TAi18n.t(lang, 'notif.update.body', { v: remote }));
       }
     } else {
       await chrome.storage.local.set({ update: { available: false, version: current } });
@@ -146,6 +148,7 @@ function handleClaim(msg) {
     const settings = data.settings || {};
     const history = Array.isArray(data.history) ? data.history : [];
     const now = Date.now();
+    const lang = TAi18n.resolveLang(settings);
 
     if (msg.kind === 'points') {
       const before = s.pointsValue;
@@ -155,13 +158,16 @@ function handleClaim(msg) {
       const crossed = Math.floor(s.pointsValue / POINTS_NOTIFY_STEP) > Math.floor(before / POINTS_NOTIFY_STEP);
       if (crossed) {
         history.push({ type: 'points', amount: s.pointsValue, ts: now });
-        if (settings.notifications) notify('Points reclames', `${s.pointsValue} points cumules via Twitch Auto`);
+        if (settings.notifications) notify(TAi18n.t(lang, 'notif.points.title'), TAi18n.t(lang, 'notif.points.body', { n: s.pointsValue }));
       }
     } else if (msg.kind === 'drop') {
       s.dropsClaimed += 1;
       s.lastDropsClaim = now;
       history.push({ type: 'drop', name: msg.name || '', ts: now });
-      if (settings.notifications) notify('Drop reclame', msg.name ? `Drop: ${msg.name}` : 'Un drop a ete reclame');
+      if (settings.notifications) {
+        const body = msg.name ? TAi18n.t(lang, 'notif.drop.bodyNamed', { name: msg.name }) : TAi18n.t(lang, 'notif.drop.bodyAnon');
+        notify(TAi18n.t(lang, 'notif.drop.title'), body);
+      }
     }
 
     // Agregation par chaine.

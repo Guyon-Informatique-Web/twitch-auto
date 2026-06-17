@@ -1,17 +1,22 @@
 // Fonctions pures partagees entre service worker, popup et content scripts.
 // Aucun acces DOM/Chrome ici -> testable en Node.
 (function (root) {
-  // Temps relatif en francais a partir d'un timestamp (ms) et de "maintenant".
-  function formatRelativeTime(ts, now) {
-    if (ts == null) return 'jamais';
+  // Temps relatif a partir d'un timestamp (ms) et de "maintenant".
+  // lang : 'fr' (defaut) | 'en'. Defaut FR pour rester retrocompatible.
+  function formatRelativeTime(ts, now, lang) {
+    const en = String(lang || '').toLowerCase().startsWith('en');
+    const L = en
+      ? { never: 'never', now: 'just now', min: (m) => `${m} min ago`, h: (h) => `${h} h ago`, d: (d) => `${d} d ago` }
+      : { never: 'jamais', now: 'a l instant', min: (m) => `il y a ${m} min`, h: (h) => `il y a ${h} h`, d: (d) => `il y a ${d} j` };
+    if (ts == null) return L.never;
     const s = Math.max(0, Math.floor((now - ts) / 1000));
-    if (s < 60) return 'a l instant';
+    if (s < 60) return L.now;
     const m = Math.floor(s / 60);
-    if (m < 60) return `il y a ${m} min`;
+    if (m < 60) return L.min(m);
     const h = Math.floor(m / 60);
-    if (h < 24) return `il y a ${h} h`;
+    if (h < 24) return L.h(h);
     const j = Math.floor(h / 24);
-    return `il y a ${j} j`;
+    return L.d(j);
   }
 
   // Autorise un reload tant qu'on n'a pas depasse maxN reloads dans la fenetre.
@@ -21,15 +26,17 @@
   }
 
   // Format compact d'un nombre : 10, 100, 999, 1K, 10K, 1,2M, 3,4B.
-  function formatCompact(n) {
+  // lang : 'fr' (defaut, separateur ',') | 'en' (separateur '.').
+  function formatCompact(n, lang) {
     n = Number(n) || 0;
+    const sep = String(lang || '').toLowerCase().startsWith('en') ? '.' : ',';
     const abs = Math.abs(n);
     const units = [{ v: 1e9, s: 'B' }, { v: 1e6, s: 'M' }, { v: 1e3, s: 'K' }];
     for (const u of units) {
       // seuil un poil sous l'unite pour eviter le debordement d'arrondi (999 999 -> "1M", pas "1000K")
       if (abs >= u.v * 0.9995) {
         const val = Math.round((n / u.v) * 10) / 10; // 1 decimale
-        return String(val).replace('.', ',') + u.s;
+        return String(val).replace('.', sep) + u.s;
       }
     }
     return String(n);
