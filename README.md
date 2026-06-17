@@ -1,8 +1,20 @@
 # Twitch Auto
 
-Extension Chrome locale (Manifest V3) : auto-claim points de chaine + drops Twitch, reload auto du player, aides de farming AFK (qualite mini, anti "Toujours la", mute fond, notifications).
+Extension Chrome (Manifest V3, locale) qui automatise Twitch : auto-claim des **points de chaine** et des **drops**, **farming multi-onglets** en arriere-plan, reload auto du player, et de nombreuses aides AFK. Le tout dans un popup clair a 3 onglets.
 
-Usage personnel, en local, non publie sur le Chrome Web Store.
+> Usage **personnel**. Non publiee sur le Chrome Web Store (chargee en mode developpeur).
+
+![Apercu du popup Twitch Auto](assets/popup.png)
+
+## Fonctionnalites
+
+- **Points de chaine** : reclame les coffres bonus automatiquement (gain reel compte).
+- **Drops** : reclamation auto via l'inventaire ET via le bandeau qui apparait sur un stream.
+- **Farming multi-onglets** : les drops progressent sur TOUS les onglets ouverts en parallele (pas seulement l'onglet actif), et les videos de fond ne se mettent plus en pause.
+- **Reload auto** du player en cas d'erreur (avec garde anti-boucle).
+- **Qualite mini** (160p) et **mute** sur les onglets en arriere-plan, **anti-AFK** (gates "toujours la" / contenu sensible), **anti-pause**.
+- **Suivi** : temps de visionnage, onglets actifs, drops en cours avec % et **temps restant estime (ETA)**, stats par chaine, historique.
+- **Notifications**, **export** de l'historique, **auto-MAJ** (notification quand une nouvelle version sort), **inventaire auto**, **auto-switch** vers une chaine de repli.
 
 ## Installation
 
@@ -111,6 +123,10 @@ L'extension verifie automatiquement (toutes les 6h + au demarrage) s'il existe u
 - v1.2.0 : auto-refresh de l'inventaire en arriere-plan (toutes les 5 min) pour reclamer les drops termines sans intervention. La reclamation reste via l'inventaire (le claim depuis le stream live n'est pas fiable).
 - v1.1.0 : historique des drops (avec nom) et paliers de points dans le popup ; ID d'extension epingle (cle dans le manifest) pour que le stockage survive a un deplacement du dossier.
 - v1.0.0 : version initiale (points, drops, reload, quality, antiAfk, mute, notifications, popup).
+
+## Licence
+
+Usage **personnel et gratuit** autorise. Il est **interdit** de modifier, redistribuer, heberger ailleurs, ou revendre ce logiciel sans accord ecrit de l'auteur. Voir le fichier [LICENSE](LICENSE). Tous droits reserves - Valentin Guyon (Guyon Informatique & Web).
 
 ## Credits
 
