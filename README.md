@@ -51,6 +51,10 @@ Usage **personnel et gratuit** autorise. Il est **interdit** de modifier, redist
 
 Icones : [Lucide](https://lucide.dev) / [Feather](https://feathericons.com) (licences ISC / MIT).
 
+## Soutenir le projet
+
+Twitch Auto est gratuit. Si l'extension t'est utile, tu peux soutenir son developpement : [Faire un don](https://guyon-informatique-web.fr) &#10084;
+
 ## Avertissement
 
 L'automatisation de Twitch (auto-claim de points/drops) est dans une zone grise des conditions d'utilisation de Twitch. Cet outil agit par simulation de clics dans la page (pas d'API privee), ce qui limite le risque, mais sans aucune garantie. Utilisation a vos propres risques.

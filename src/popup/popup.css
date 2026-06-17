@@ -40,6 +40,9 @@ body {
 .panel { padding-top: 12px; }
 .panel[hidden] { display: none; }
 .settings-foot { padding: 8px 16px 16px; }
+.donate { display: block; text-align: center; margin: 0 16px 16px; padding: 9px; border-radius: 8px; background: var(--surface); color: #ff6b9d; font-size: 12px; font-weight: 600; text-decoration: none; }
+.donate:hover { background: #2a2a2e; }
+.donate:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 .stats { display: flex; gap: 10px; padding: 0 16px 12px; }
 .stat {
