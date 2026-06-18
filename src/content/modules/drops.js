@@ -10,7 +10,7 @@ TA.modules.drops = (function () {
   const COOLDOWN = 4000;                        // delai mini entre deux clics
   const WINDOW = 10 * 60 * 1000;               // fenetre glissante anti-boucle (se reinitialise seule)
   const MAX_IN_WINDOW = 30;                    // max claims / 10 min
-  const INVENTORY_REFRESH = 5 * 60 * 1000;     // recharge l'inventaire (Twitch ne le met pas a jour en direct)
+  const INVENTORY_REFRESH = 3 * 60 * 1000;     // recharge l'inventaire (Twitch ne le met pas a jour en direct)
   let lastClick = 0;
   let recent = [];
 
@@ -83,6 +83,11 @@ TA.modules.drops = (function () {
       const name = getDropName(btn);
       TA.report('drop', { name, channel: TA.dom.currentChannel() });
       TA.log.info('drops', name ? `drop reclame : ${name}` : 'drop reclame');
+
+      // Claim depuis le bandeau d'un stream (hors page inventaire) : demande au
+      // service worker de recharger l'onglet inventaire pour remettre a jour les
+      // barres de progression (sur l'inventaire, maybeRefresh s'en charge deja).
+      if (!onInventory()) TA.reloadInventory();
 
       // Re-essaye apres le cooldown pour enchainer les drops suivants.
       // armTimer est remis a null AU DEBUT de la re-tentative : sinon il reste non-null

@@ -24,3 +24,8 @@ TA.log = {
 TA.report = function (kind, payload) {
   safeSend({ type: 'claim', kind, ...(payload || {}) });
 };
+
+// Demande au background de recharger l'onglet inventaire des drops (throttle cote SW).
+TA.reloadInventory = function () {
+  safeSend({ type: 'inventoryReload' });
+};

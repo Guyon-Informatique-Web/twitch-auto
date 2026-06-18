@@ -45,6 +45,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true } = {}) {
   installEnv();
 
   let reloadCount = 0;
+  let inventoryReloadCount = 0;
   const clickedEls = [];
   const btn = { textContent: 'En profiter', getAttribute: () => '', querySelectorAll: () => [], parentElement: null };
 
@@ -61,7 +62,8 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true } = {}) {
       dropClaimExact: ['en profiter']
     },
     log: { info() {}, warn() {}, error() {} },
-    report: () => {}
+    report: () => {},
+    reloadInventory: () => { inventoryReloadCount += 1; }
   };
 
   let tickCb = null;
@@ -79,9 +81,11 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true } = {}) {
   return {
     mod,
     refresh: () => intervals[0].fn(),   // declenche maybeRefresh (la seule callback setInterval)
+    refreshDelay: () => intervals[0].delay,
     tick: () => tickCb(),
     clickedEls,
-    reloadCount: () => reloadCount
+    reloadCount: () => reloadCount,
+    inventoryReloadCount: () => inventoryReloadCount
   };
 }
 
@@ -116,6 +120,33 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true } = {}) {
   setClock(100000 + 60000);
   d.refresh();
   assert.strictEqual(d.reloadCount(), 0, 'pas de reload hors de la page inventaire');
+  d.mod.stop();
+}
+
+// --- Cas 4 : l'inventaire se recharge toutes les 3 min ---
+{
+  const d = loadDrops({ hasButton: false });
+  d.mod.start();
+  assert.strictEqual(d.refreshDelay(), 3 * 60 * 1000, 'la cadence de rechargement de l inventaire doit etre 3 min');
+  d.mod.stop();
+}
+
+// --- Cas 5 : un drop reclame SUR UN STREAM declenche le rechargement de l'inventaire ---
+{
+  const d = loadDrops({ pathname: '/somestreamer', hasButton: true });
+  d.mod.start();                       // reclame le drop via le bandeau du stream
+  assert.strictEqual(d.clickedEls.length, 1, 'le drop du bandeau stream doit etre reclame');
+  assert.strictEqual(d.inventoryReloadCount(), 1, 'un claim sur un stream doit demander le rechargement de l inventaire');
+  assert.strictEqual(d.reloadCount(), 0, 'on ne recharge pas la page du stream elle-meme');
+  d.mod.stop();
+}
+
+// --- Cas 6 : un drop reclame SUR la page inventaire ne redemande pas de rechargement (maybeRefresh s'en charge) ---
+{
+  const d = loadDrops({ pathname: '/drops/inventory', hasButton: true });
+  d.mod.start();
+  assert.strictEqual(d.clickedEls.length, 1, 'le drop de l inventaire doit etre reclame');
+  assert.strictEqual(d.inventoryReloadCount(), 0, 'pas de demande de rechargement supplementaire depuis l inventaire');
   d.mod.stop();
 }
 

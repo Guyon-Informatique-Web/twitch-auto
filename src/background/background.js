@@ -61,6 +61,21 @@ async function ensureInventoryTab() {
   } catch (e) { /* ignore */ }
 }
 
+// Recharge le(s) onglet(s) inventaire deja ouverts (suite a un claim sur un stream),
+// pour remettre a jour les barres de progression. Throttle pour absorber une rafale de claims.
+const INVENTORY_RELOAD_THROTTLE = 30 * 1000;
+let lastInventoryReload = 0;
+async function reloadInventoryTabs() {
+  try {
+    const tabs = await chrome.tabs.query({ url: 'https://www.twitch.tv/drops/inventory*' });
+    if (!tabs.length) return;                                           // aucun onglet : ne consomme pas le throttle
+    const now = Date.now();
+    if (now - lastInventoryReload < INVENTORY_RELOAD_THROTTLE) return;   // anti-rafale (best-effort, SW MV3)
+    lastInventoryReload = now;
+    for (const tab of tabs) { if (tab.id != null) chrome.tabs.reload(tab.id); }
+  } catch (e) { /* ignore */ }
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   const cur = await chrome.storage.local.get(['settings', 'stats']);
   await chrome.storage.local.set({
@@ -138,6 +153,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === 'watch') { handleWatch(msg, sender); return false; }
   if (msg.type === 'inprogress') { handleInProgress(msg); return false; }
+  if (msg.type === 'inventoryReload') { reloadInventoryTabs(); return false; }
   return false;
 });
 
