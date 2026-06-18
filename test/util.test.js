@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle } = require('../src/shared/util.js');
+const { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle, cleanDropName } = require('../src/shared/util.js');
 const { t: tr, resolveLang, normLang, detectLang } = require('../src/shared/i18n.js');
 
 // formatRelativeTime(ts, now) -> francais par defaut (retrocompatible)
@@ -64,5 +64,21 @@ assert.strictEqual(t('a', 0), true);
 assert.strictEqual(t('a', 500), false);
 assert.strictEqual(t('a', 1500), true);
 assert.strictEqual(t('b', 1500), true);
+
+// cleanDropName(name) -> retire le verbe d'action en tete ("Recuperer X" -> "X")
+assert.strictEqual(cleanDropName('Récupérer Shooting Star'), 'Shooting Star');
+assert.strictEqual(cleanDropName('Recuperer Radiant Wilds Chest'), 'Radiant Wilds Chest');
+assert.strictEqual(cleanDropName('Récupérer 100 Tech + 10,000 Credits'), '100 Tech + 10,000 Credits');
+assert.strictEqual(cleanDropName('Réclamer Bloodfrenzy Drone'), 'Bloodfrenzy Drone');
+assert.strictEqual(cleanDropName('Claim Cotton Candy Grrgle'), 'Cotton Candy Grrgle');
+assert.strictEqual(cleanDropName('Obtenir Mutant'), 'Mutant');
+assert.strictEqual(cleanDropName('Mutant'), 'Mutant');                 // pas de prefixe -> inchange
+assert.strictEqual(cleanDropName('Gas Guzzler'), 'Gas Guzzler');
+assert.strictEqual(cleanDropName('Get Even'), 'Get Even');             // "get" n'est pas un bouton de claim Twitch -> non touche
+assert.strictEqual(cleanDropName('Claim Jumper Deluxe').length > 0, true);
+assert.strictEqual(cleanDropName('Récupérer'), 'Récupérer');           // verbe seul (pas de suite) -> inchange
+assert.strictEqual(cleanDropName('  Récupérer Skin X  '), 'Skin X');   // espaces externes nettoyes
+assert.strictEqual(cleanDropName(''), '');
+assert.strictEqual(cleanDropName(null), '');
 
 console.log('OK util + i18n');

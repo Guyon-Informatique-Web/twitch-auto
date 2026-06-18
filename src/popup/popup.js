@@ -112,7 +112,7 @@ function renderHistory(history, now) {
     const label = document.createElement('span');
     label.className = 'hist-label';
     label.textContent = isDrop
-      ? (e.name || t('hist.dropDefault'))
+      ? (TAUtil.cleanDropName(e.name) || t('hist.dropDefault'))
       : t('hist.pointsTier', { n: TAUtil.formatCompact(e.amount || 0, currentLang) });
     label.title = label.textContent; // nom complet au survol (les longs sont tronques)
     const time = document.createElement('span');

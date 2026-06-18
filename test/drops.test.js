@@ -41,13 +41,20 @@ function advance(ms) {
 function setClock(v) { clock = v; }
 
 // Charge drops.js a neuf avec un faux DOM/TA. Renvoie les leviers de pilotage.
-function loadDrops({ pathname = '/drops/inventory', hasButton = true } = {}) {
+function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName = null } = {}) {
   installEnv();
 
   let reloadCount = 0;
   let inventoryReloadCount = 0;
   const clickedEls = [];
-  const btn = { textContent: 'En profiter', getAttribute: () => '', querySelectorAll: () => [], parentElement: null };
+  const reportedNames = [];
+  // Un bouton de claim ; quand cardName est fourni, son libelle CoreText interne sert de nom.
+  const btn = {
+    textContent: 'En profiter',
+    getAttribute: () => '',
+    querySelectorAll: (sel) => (cardName && /CoreText/.test(String(sel))) ? [{ textContent: cardName }] : [],
+    parentElement: null
+  };
 
   global.location = { pathname, reload: () => { reloadCount += 1; } };
   global.document = {
@@ -55,6 +62,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true } = {}) {
     querySelectorAll: (sel) => (hasButton && sel === '.claim') ? [btn] : []
   };
   global.window = global;
+  global.TAUtil = require('../src/shared/util.js');
   global.TA = {
     selectors: {
       dropClaim: ['.claim'],
@@ -62,7 +70,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true } = {}) {
       dropClaimExact: ['en profiter']
     },
     log: { info() {}, warn() {}, error() {} },
-    report: () => {},
+    report: (kind, payload) => { reportedNames.push(payload && payload.name); },
     reloadInventory: () => { inventoryReloadCount += 1; }
   };
 
@@ -85,7 +93,8 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true } = {}) {
     tick: () => tickCb(),
     clickedEls,
     reloadCount: () => reloadCount,
-    inventoryReloadCount: () => inventoryReloadCount
+    inventoryReloadCount: () => inventoryReloadCount,
+    lastReportedName: () => reportedNames[reportedNames.length - 1]
   };
 }
 
@@ -147,6 +156,14 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true } = {}) {
   d.mod.start();
   assert.strictEqual(d.clickedEls.length, 1, 'le drop de l inventaire doit etre reclame');
   assert.strictEqual(d.inventoryReloadCount(), 0, 'pas de demande de rechargement supplementaire depuis l inventaire');
+  d.mod.stop();
+}
+
+// --- Cas 7 : le nom d'un drop reclame sur un stream est nettoye du verbe d'action ---
+{
+  const d = loadDrops({ pathname: '/somestreamer', hasButton: true, cardName: 'Récupérer Shooting Star' });
+  d.mod.start();
+  assert.strictEqual(d.lastReportedName(), 'Shooting Star', 'le verbe Recuperer doit etre retire du nom du drop');
   d.mod.stop();
 }
 

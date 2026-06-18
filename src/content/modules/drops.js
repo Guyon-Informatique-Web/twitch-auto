@@ -44,7 +44,7 @@ TA.modules.drops = (function () {
   }
 
   // Le nom du drop est un <p class="CoreText-sc-..."> dans la carte du drop.
-  const NAME_NOISE = /^(en profiter|obtenir|obtenu|claim now|claim|claimed|r[eé]clamer|\d+\s*%|termin[eé]|completed|in progress|en cours)$/i;
+  const NAME_NOISE = /^(en profiter|obtenir|obtenu|claim now|claim|claimed|r[eé]clamer|r[eé]cup[eé]rer|\d+\s*%|termin[eé]|completed|in progress|en cours)$/i;
 
   function getDropName(btn) {
     // On remonte depuis le bouton ; a chaque niveau on cherche un libelle de nom.
@@ -53,7 +53,9 @@ TA.modules.drops = (function () {
       if (el.querySelectorAll) {
         const cands = el.querySelectorAll('p[class*="CoreText"], span[class*="CoreText"], h1, h2, h3, h4, h5, h6, [role="heading"]');
         for (const c of cands) {
-          const t = (c.textContent || '').trim();
+          // On retire un eventuel verbe d'action en tete ("Recuperer X" -> "X") : le libelle du
+          // bouton de reclamation est parfois capte comme nom (bandeau sur un stream).
+          const t = TAUtil.cleanDropName((c.textContent || '').trim());
           if (t && t.length >= 3 && t.length <= 80 && !NAME_NOISE.test(t) && !/ic[oô]ne|image/i.test(t)) {
             return t;
           }

@@ -65,7 +65,15 @@
     return 0;
   }
 
-  const api = { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle };
+  // Retire le verbe d'action en tete d'un nom de drop ("Recuperer X" -> "X").
+  // Utile quand l'etiquette du bouton de reclamation est captee comme nom (bandeau sur stream).
+  function cleanDropName(name) {
+    const s = String(name == null ? '' : name).trim();
+    const cleaned = s.replace(/^(r[eé]cup[eé]rer|r[eé]clamer|obtenir|claim now|claim)\s+/i, '').trim();
+    return cleaned || s; // si le strip vide tout (verbe seul), on garde l'original
+  }
+
+  const api = { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle, cleanDropName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TAUtil = api;
 })(typeof self !== 'undefined' ? self : this);
