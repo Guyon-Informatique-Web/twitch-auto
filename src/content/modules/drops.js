@@ -85,8 +85,10 @@ TA.modules.drops = (function () {
       TA.log.info('drops', name ? `drop reclame : ${name}` : 'drop reclame');
 
       // Re-essaye apres le cooldown pour enchainer les drops suivants.
+      // armTimer est remis a null AU DEBUT de la re-tentative : sinon il reste non-null
+      // pour toujours et maybeRefresh (qui s'arrete si armTimer) ne recharge plus jamais.
       if (armTimer) clearTimeout(armTimer);
-      armTimer = setTimeout(tick, COOLDOWN + 300);
+      armTimer = setTimeout(() => { armTimer = null; tick(); }, COOLDOWN + 300);
     } catch (e) { TA.log.error('drops', e); }
   }
 

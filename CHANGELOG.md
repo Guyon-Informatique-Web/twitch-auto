@@ -1,5 +1,6 @@
 # Changelog
 
+- v1.10.1 : corrige le rechargement automatique de la page inventaire qui ne se faisait plus des qu'un drop avait ete reclame. Le timer de re-essai de claim (`armTimer`) n'etait jamais remis a zero apres la fin d'une sequence, ce qui bloquait definitivement le rafraichissement periodique (toutes les 5 min). L'inventaire se recharge de nouveau pour reclamer les drops termines sans intervention.
 - v1.10.0 : interface bilingue FR / EN. Selecteur de langue a drapeaux colores (France / Etats-Unis) dans l'onglet Reglages ; le popup ET les notifications desktop suivent le choix (auto-detecte depuis le navigateur par defaut). Tous les textes d'interface centralises dans `src/shared/i18n.js`. README anglais (`README.en.md`).
 - v1.9.3 : lien de don pointe vers Ko-fi (ko-fi.com/vguyondev).
 - v1.9.2 : lien "Faire un don" dans le popup (onglet Reglages) et le README.
