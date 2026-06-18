@@ -28,6 +28,8 @@
 
       // Onglet Reglages
       'ui.autoswitchPh': 'URL de repli (ex: https://www.twitch.tv/maChaine)',
+      'ui.historyTtl': 'Vider l historique apres (min)',
+      'ui.historyTtlPh': '0 = jamais',
       'ui.diagTest': 'Tester les selecteurs (sur une page Twitch)',
       'ui.export': 'exporter',
       'ui.reset': 'reinitialiser',
@@ -111,6 +113,8 @@
 
       // Settings tab
       'ui.autoswitchPh': 'Fallback URL (e.g. https://www.twitch.tv/myChannel)',
+      'ui.historyTtl': 'Clear history after (min)',
+      'ui.historyTtlPh': '0 = never',
       'ui.diagTest': 'Test selectors (on a Twitch page)',
       'ui.export': 'export',
       'ui.reset': 'reset',

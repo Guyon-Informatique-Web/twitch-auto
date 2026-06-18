@@ -120,6 +120,11 @@
       <input id="autoswitch-url" type="text" data-i18n-ph="ui.autoswitchPh" placeholder="URL de repli (ex: https://www.twitch.tv/maChaine)">
     </div>
 
+    <div class="as-row hist-ttl-row">
+      <label for="history-ttl" data-i18n="ui.historyTtl">Vider l'historique apres (min)</label>
+      <input id="history-ttl" type="number" min="0" step="1" inputmode="numeric" data-i18n-ph="ui.historyTtlPh" placeholder="0 = jamais">
+    </div>
+
     <div class="diag-test">
       <button id="diag-test-btn" class="btn-sec" data-i18n="ui.diagTest">Tester les selecteurs (sur une page Twitch)</button>
       <p id="diag-result" class="diag-result"></p>

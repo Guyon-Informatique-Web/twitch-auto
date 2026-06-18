@@ -86,6 +86,9 @@ section h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); ma
 .meta { margin: -4px 16px 12px; font-size: 11px; color: var(--muted); }
 .as-row { margin: 0 16px 12px; }
 .as-row input { width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #3a3a3d; background: var(--surface); color: var(--text); font-size: 11px; }
+.hist-ttl-row { display: flex; align-items: center; gap: 8px; }
+.hist-ttl-row label { flex: 1; font-size: 11px; color: var(--text); }
+.hist-ttl-row input { width: 64px; flex: none; text-align: right; }
 #inprogress, #channels { padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px; }
 .ip-row, .ch-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .ip-name, .ch-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -227,12 +227,25 @@ async function load() {
   renderMeta(stats);
   renderInProgress(stats.inProgress || []);
   renderChannels(stats.byChannel || {});
-  renderHistory(history, now);
+  // Vidage auto de l'historique : on filtre a l'affichage (meme sans nouveau claim) et, si des
+  // entrees ont expire, on demande au background de persister la purge (ecriture serialisee via
+  // enqueue -> pas de course avec un claim concurrent ; le popup n'ecrit jamais history lui-meme).
+  const prunedHistory = TAUtil.pruneHistory(history, now, settings.historyTtlMin);
+  if (prunedHistory.length !== history.length) {
+    try {
+      const p = chrome.runtime.sendMessage({ type: 'pruneHistory' });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (e) { /* contexte invalide */ }
+  }
+  renderHistory(prunedHistory, now);
 
   // Ligne URL de l'auto-switch (visible seulement si le toggle est actif).
   document.getElementById('autoswitch-row').hidden = settings.autoSwitch !== true;
   const asInput = document.getElementById('autoswitch-url');
   if (document.activeElement !== asInput) asInput.value = settings.autoSwitchUrl || '';
+
+  const histInput = document.getElementById('history-ttl');
+  if (document.activeElement !== histInput) histInput.value = settings.historyTtlMin || '';
 
   document.getElementById('diag').textContent = lastError
     ? t('diag.lastError', { module: lastError.module, message: lastError.message })
@@ -257,6 +270,12 @@ document.getElementById('update-dl').addEventListener('click', () => {
 });
 
 document.getElementById('autoswitch-url').addEventListener('change', (e) => update('autoSwitchUrl', e.target.value.trim()));
+
+// Vidage auto de l'historique : champ vide ou <= 0 -> 0 (desactive, n'efface rien).
+document.getElementById('history-ttl').addEventListener('change', (e) => {
+  const n = parseInt(e.target.value, 10);
+  update('historyTtlMin', Number.isFinite(n) && n > 0 ? n : 0);
+});
 
 // Choix de la langue : clic sur un drapeau -> enregistre settings.lang et recharge.
 document.querySelectorAll('.lang-btn').forEach((b) => {

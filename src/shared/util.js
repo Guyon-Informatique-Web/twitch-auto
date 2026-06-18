@@ -73,7 +73,20 @@
     return cleaned || s; // si le strip vide tout (verbe seul), on garde l'original
   }
 
-  const api = { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle, cleanDropName };
+  // Retire de l'historique les entrees plus vieilles que ttlMin minutes.
+  // ttlMin vide / 0 / non numerique -> aucune purge (on renvoie l'historique tel quel).
+  // Les entrees sans timestamp valide sont conservees (on ne peut juger leur age).
+  function pruneHistory(history, now, ttlMin) {
+    if (!Array.isArray(history)) return [];
+    const ttl = Number(ttlMin) > 0 ? Number(ttlMin) * 60000 : 0;
+    if (!ttl) return history.slice();
+    return history.filter((e) => {
+      const ts = e && typeof e.ts === 'number' ? e.ts : null;
+      return ts == null || (now - ts) < ttl;
+    });
+  }
+
+  const api = { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle, cleanDropName, pruneHistory };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TAUtil = api;
 })(typeof self !== 'undefined' ? self : this);

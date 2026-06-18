@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle, cleanDropName } = require('../src/shared/util.js');
+const { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle, cleanDropName, pruneHistory } = require('../src/shared/util.js');
 const { t: tr, resolveLang, normLang, detectLang } = require('../src/shared/i18n.js');
 
 // formatRelativeTime(ts, now) -> francais par defaut (retrocompatible)
@@ -80,5 +80,18 @@ assert.strictEqual(cleanDropName('Récupérer'), 'Récupérer');           // ve
 assert.strictEqual(cleanDropName('  Récupérer Skin X  '), 'Skin X');   // espaces externes nettoyes
 assert.strictEqual(cleanDropName(''), '');
 assert.strictEqual(cleanDropName(null), '');
+
+// pruneHistory(history, now, ttlMin) -> retire les entrees plus vieilles que ttlMin minutes
+const NOW = 10 * 60 * 1000;
+const hist = [{ ts: 0 }, { ts: 5 * 60 * 1000 }, { ts: 9 * 60 * 1000 }];
+assert.strictEqual(pruneHistory(hist, NOW, 0).length, 3, 'ttl 0 -> rien efface');
+assert.strictEqual(pruneHistory(hist, NOW, null).length, 3, 'ttl null -> rien efface');
+assert.strictEqual(pruneHistory(hist, NOW, '').length, 3, 'ttl vide -> rien efface');
+assert.strictEqual(pruneHistory(hist, NOW, 6).length, 2, 'ttl 6 min -> retire l entree de 10 min');
+assert.deepStrictEqual(pruneHistory(hist, NOW, 6).map((e) => e.ts), [5 * 60 * 1000, 9 * 60 * 1000]);
+assert.strictEqual(pruneHistory(hist, NOW, 6) === hist, false, 'retourne un nouveau tableau (pas de mutation)');
+assert.strictEqual(hist.length, 3, 'le tableau d origine n est pas mute');
+assert.strictEqual(pruneHistory([{ type: 'drop' }], NOW, 5).length, 1, 'entree sans ts -> gardee');
+assert.strictEqual(pruneHistory([], NOW, 5).length, 0, 'historique vide -> vide');
 
 console.log('OK util + i18n');

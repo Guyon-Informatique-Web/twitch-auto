@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS = {
   tracker: true,          // suivi temps de visionnage / drops en cours (pas de toggle visible)
   autoSwitch: false,      // bascule si chaine hors-ligne (opt-in, redirige l'onglet)
   autoSwitchUrl: '',      // URL de repli pour l'auto-switch
+  historyTtlMin: 0,       // vidage auto de l'historique apres X min (0 / vide = jamais)
   errorEndpoint: ''       // URL log-error de giw-site-web (a renseigner ; vide = pas d'envoi)
 };
 const DEFAULT_STATS = {
@@ -154,6 +155,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'watch') { handleWatch(msg, sender); return false; }
   if (msg.type === 'inprogress') { handleInProgress(msg); return false; }
   if (msg.type === 'inventoryReload') { reloadInventoryTabs(); return false; }
+  if (msg.type === 'pruneHistory') { pruneHistoryNow(); return false; }
   return false;
 });
 
@@ -197,7 +199,8 @@ function handleClaim(msg) {
     }
 
     if (history.length > HISTORY_MAX) history.splice(0, history.length - HISTORY_MAX);
-    await chrome.storage.local.set({ stats: s, history });
+    const pruned = TAUtil.pruneHistory(history, now, settings.historyTtlMin);
+    await chrome.storage.local.set({ stats: s, history: pruned });
   });
 }
 
@@ -235,6 +238,16 @@ function handleInProgress(msg) {
     s.inProgress = list;
     if (list.length) s.inProgressTs = now;
     await chrome.storage.local.set({ stats: s });
+  });
+}
+
+// Purge de l'historique demandee par le popup. Passe par la file enqueue (comme toutes les
+// ecritures de history) pour eviter un read-modify-write concurrent avec handleClaim.
+function pruneHistoryNow() {
+  return enqueue(async () => {
+    const { settings = {}, history = [] } = await chrome.storage.local.get(['settings', 'history']);
+    const pruned = TAUtil.pruneHistory(history, Date.now(), settings.historyTtlMin);
+    if (pruned.length !== history.length) await chrome.storage.local.set({ history: pruned });
   });
 }
 
