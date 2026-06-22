@@ -92,5 +92,31 @@ TA.dom = (function () {
     return seg;
   }
 
-  return { isClickable, findFirst, findByText, click, subscribe, currentChannel, start: ensureObserving, stop: disconnect };
+  // Chaine courante HORS-LIGNE ? Detection robuste et CONSERVATRICE cote faux positif :
+  // un faux "offline" empecherait le watchdog de relancer un live fige (= perte de farm).
+  // On combine plusieurs signaux par OR, du plus fiable au moins fiable, source UNIQUE
+  // partagee par watchdog (s'arrete), autoswitch (bascule) et reloader (n'exclut).
+  function isChannelOffline() {
+    const S = TA.selectors || {};
+    // 1) Garde LIVE la PLUS fiable, independante du CSS / de la langue / du mode theatre /
+    //    plein ecran : un direct HLS a une <video> de duree infinie deja lancee. Tant qu'une
+    //    telle video existe (meme mise en pause en arriere-plan), la chaine est EN DIRECT
+    //    -> jamais hors-ligne (survit a pub, pause et gate mature).
+    const vids = document.querySelectorAll('video');
+    for (const v of vids) { if (!isFinite(v.duration) && v.currentTime > 0 && !v.ended) return false; }
+    // 2) Anti-signaux LIVE structurels (panneau direct / compteur de spectateurs) en complement.
+    if (S.liveSignals && findFirst(S.liveSignals)) return false;
+    // 3) Signal POSITIF fort : conteneur present UNIQUEMENT sur une chaine hors-ligne. Le live
+    //    etant deja ecarte, sa presence = hors-ligne certain, meme avec une video de preview
+    //    en pause dans la page.
+    if (S.offlineSignals && findFirst(S.offlineSignals)) return true;
+    // 4) Repli TEXTE multi-langue sur un root BORNE (jamais document.body). Pas de root reconnu
+    //    -> on ne conclut pas (return false : on prefere un faux negatif a un faux positif).
+    const root = findFirst(S.offlineTextRoots || S.playerOverlay || []);
+    if (!root) return false;
+    const txt = root.textContent || '';
+    return (S.offlinePatterns || []).some((re) => re.test(txt));
+  }
+
+  return { isClickable, findFirst, findByText, click, subscribe, currentChannel, isChannelOffline, start: ensureObserving, stop: disconnect };
 })();

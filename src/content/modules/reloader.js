@@ -19,6 +19,9 @@ TA.modules.reloader = (function () {
     sessionStorage.setItem(KEY, JSON.stringify(h));
   }
   function hasTransientError() {
+    // Chaine hors-ligne (detection mutualisee, garde live HLS incluse) : ce n'est pas une
+    // erreur transitoire -> on ne recharge pas (sinon boucle de reloads sur un stream coupe).
+    if (TA.dom.isChannelOffline && TA.dom.isChannelOffline()) return false;
     const root = TA.dom.findFirst(TA.selectors.playerOverlay) ||
       document.querySelector('[data-a-target="video-player"]');
     if (!root) return false;

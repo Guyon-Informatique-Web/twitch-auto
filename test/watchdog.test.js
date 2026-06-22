@@ -21,9 +21,11 @@ function installEnv() {
 function setClock(v) { clock = v; }
 
 // videos : tableau d'objets {paused, ended, readyState} (mutables entre deux ticks). undefined -> un player en pause.
-function loadWatchdog({ hidden = true, channel = 'chan', videos, offlineText = '', fails = null, failsForChannel = null } = {}) {
+// offline : etat renvoye par la detection hors-ligne mutualisee (TA.dom.isChannelOffline), mockee ici.
+function loadWatchdog({ hidden = true, channel = 'chan', videos, offline = false, fails = null, failsForChannel = null } = {}) {
   installEnv();
   let reloadCount = 0;
+  let offlineState = offline;          // mutable entre deux ticks (transition hors-ligne -> en ligne)
   const store = {};
   if (fails != null) store['ta_watchdog_state'] = JSON.stringify({ ch: failsForChannel || channel, n: fails });
   const vids = videos === undefined ? [{ paused: true, ended: false, readyState: 4 }] : videos;
@@ -37,14 +39,14 @@ function loadWatchdog({ hidden = true, channel = 'chan', videos, offlineText = '
     hidden,
     querySelectorAll: (sel) => (sel === 'video' ? vids : []),
     querySelector: () => null,
-    body: { textContent: offlineText }
+    body: { textContent: '' }
   };
   global.window = global;
   global.TAUtil = TAUtil;
   global.TA = {
     selectors: { playerOverlay: ['.overlay'], offlinePatterns: [/hors[- ]?ligne/i, /\boffline\b/i] },
     log: { info() {}, warn() {}, error() {} },
-    dom: { currentChannel: () => channel, findFirst: () => null }
+    dom: { currentChannel: () => channel, findFirst: () => null, isChannelOffline: () => offlineState }
   };
 
   delete require.cache[require.resolve(path.join(__dirname, '../src/content/modules/watchdog.js'))];
@@ -54,6 +56,7 @@ function loadWatchdog({ hidden = true, channel = 'chan', videos, offlineText = '
     mod: global.TA.modules.watchdog,
     tick: () => intervals[0].fn(),
     reloadCount: () => reloadCount,
+    setOffline: (v) => { offlineState = v; },
     fails: () => { try { return JSON.parse(store['ta_watchdog_state'] || '{}').n || 0; } catch (e) { return 0; } },
     vids
   };
@@ -90,9 +93,9 @@ function loadWatchdog({ hidden = true, channel = 'chan', videos, offlineText = '
   d.mod.stop();
 }
 
-// --- Cas 4 : chaine hors-ligne -> pas de reload (autoswitch gere) ---
+// --- Cas 4 : chaine hors-ligne (detection mutualisee) -> pas de reload (autoswitch gere) ---
 {
-  const d = loadWatchdog({ offlineText: 'Cette chaine est hors ligne' });
+  const d = loadWatchdog({ offline: true });
   d.mod.start();
   setClock(BASE + STALL + 1000);
   d.tick();
@@ -183,6 +186,26 @@ function loadWatchdog({ hidden = true, channel = 'chan', videos, offlineText = '
   d.tick();
   assert.strictEqual(d.reloadCount(), 1, 'un changement de chaine doit remettre le compteur d abandon a zero');
   assert.strictEqual(d.fails(), 1, 'le compteur repart a 1 pour la nouvelle chaine');
+  d.mod.stop();
+}
+
+// --- Cas 12 (offline NON cumule) : une periode hors-ligne ne s accumule pas vers le minuteur ;
+//     au retour en ligne, le minuteur de 10 min repart (pas de reload immediat). Ancre le
+//     reset de lastOkTs dans la branche offline (sinon reload des le retour, sans echec de test). ---
+{
+  const vid = { paused: true, ended: false, readyState: 4 };
+  const d = loadWatchdog({ videos: [vid], offline: true });
+  d.mod.start();                                       // lastOk = BASE
+  setClock(BASE + STALL + 1000);
+  d.tick();                                            // hors-ligne >10 min -> pas de reload, lastOk remis a now
+  assert.strictEqual(d.reloadCount(), 0, 'une chaine hors-ligne ne doit jamais etre rechargee');
+  d.setOffline(false);                                 // retour en ligne, player encore fige
+  setClock(BASE + STALL + 2000);
+  d.tick();                                            // 1er tick post-retour : minuteur reparti -> pas de reload immediat
+  assert.strictEqual(d.reloadCount(), 0, 'au retour en ligne le minuteur repart (la periode offline ne s accumule pas)');
+  setClock(BASE + 2 * STALL + 2000);                   // 10 min CONTINUES de fige depuis le tick offline
+  d.tick();
+  assert.strictEqual(d.reloadCount(), 1, 'apres 10 min continues de fige post-retour, reload');
   d.mod.stop();
 }
 

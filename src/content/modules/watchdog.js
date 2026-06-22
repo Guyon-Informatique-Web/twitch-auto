@@ -27,20 +27,14 @@ TA.modules.watchdog = (function () {
     for (const v of vids) { if (!v.paused && !v.ended && v.readyState >= 2) return true; }
     return false;
   }
-  function isOffline() {
-    const root = TA.dom.findFirst(TA.selectors.playerOverlay) ||
-      document.querySelector('[data-a-target="video-player"]') || document.body;
-    const txt = (root && root.textContent) || '';
-    return TA.selectors.offlinePatterns.some((re) => re.test(txt));
-  }
-
   function tick() {
     try {
       const now = Date.now();
       const ch = TA.dom.currentChannel();
       const vids = document.querySelectorAll('video');
       // Hors zone de farm : 1er plan, pas une chaine, aucun player, ou hors-ligne -> on n'agit pas.
-      if (!document.hidden || !ch || !vids.length || isOffline()) { lastOkTs = now; return; }
+      // Detection hors-ligne mutualisee (TA.dom) : garde live HLS + signaux structurels + texte.
+      if (!document.hidden || !ch || !vids.length || TA.dom.isChannelOffline()) { lastOkTs = now; return; }
       if (anyPlaying(vids)) {                                   // reprise -> reset du compteur de cette chaine
         lastOkTs = now;
         const s = state(); if (s.n || s.ch !== ch) setState(ch, 0);
