@@ -2,7 +2,45 @@
 // Invariant central : le regroupement peut echouer - Twitch renomme sa page, un claim vient du
 // bandeau d'un stream - mais AUCUNE entree ne doit disparaitre au passage.
 const assert = require('assert');
-const { groupDropsByGame, groupHistoryByGame } = require('../src/shared/util.js');
+const { groupDropsByGame, groupHistoryByGame, gameNameFromHref } = require('../src/shared/util.js');
+
+// --- Nom de jeu derive du slug ---
+// Les hrefs ci-dessous sont RELEVES sur la vraie page inventaire : le libelle du lien y est
+// "chaine en live participante" et l'alt "Image de campagne de drops" ; le nom du jeu n'existe
+// que dans l'URL. Ces cas verrouillent la seule source exploitable.
+assert.strictEqual(gameNameFromHref('/directory/category/warframe?filter=drops'), 'Warframe');
+assert.strictEqual(gameNameFromHref('/directory/category/escape-from-tarkov?filter=drops'), 'Escape from Tarkov');
+assert.strictEqual(gameNameFromHref('/directory/category/arena-breakout-infinite?filter=drops'), 'Arena Breakout Infinite');
+assert.strictEqual(gameNameFromHref('https://www.twitch.tv/directory/game/rust'), 'Rust', 'ancienne forme /game/ et URL absolue');
+assert.strictEqual(gameNameFromHref('/directory/category/league-of-legends'), 'League of Legends', 'les particules restent en minuscules');
+assert.strictEqual(gameNameFromHref('/directory/category/of-mice-and-men'), 'Of Mice and Men', 'sauf en tete de nom');
+assert.strictEqual(gameNameFromHref('/directory/category/pubg%3A-battlegrounds'), 'Pubg: Battlegrounds', 'slug encode');
+// Rien d'exploitable -> chaine vide, jamais une valeur inventee (le regroupement se degrade).
+assert.strictEqual(gameNameFromHref('/videos/123'), '');
+assert.strictEqual(gameNameFromHref(''), '');
+assert.strictEqual(gameNameFromHref(null), '');
+// CLE : capte depuis l'inventaire ou depuis un stream, le meme jeu doit donner le MEME libelle,
+// sinon l'historique afficherait deux groupes pour un seul jeu.
+assert.strictEqual(
+  gameNameFromHref('/directory/category/escape-from-tarkov?filter=drops'),
+  gameNameFromHref('/directory/category/escape-from-tarkov'));
+
+// --- Libelles ecartes comme nom de campagne (textes REELS de la page inventaire) ---
+{
+  global.window = global;
+  delete global.TA;
+  require('../src/content/selectors.js');
+  const noise = global.TA.selectors.campaignNoise;
+  const rejete = (t) => noise.some((re) => re.test(t));
+  ['En cours', 'Date de fin : mar. 4 août, 23:59 UTC+2', 'À propos de ce drop',
+    'Cette récompense n’est plus disponible.', 'Terminé', 'In progress'].forEach((t) => {
+    assert.ok(rejete(t), `"${t}" ne doit pas etre pris pour un nom de campagne`);
+  });
+  ['Prime Time #492', 'KORD BREACH S1 Drops', 'Biohazard Loot Rush Drops', 'Summer Games'].forEach((t) => {
+    assert.ok(!rejete(t), `"${t}" est un vrai nom de campagne et doit passer`);
+  });
+  delete global.TA;
+}
 
 // --- Drops en cours ---
 const drops = [

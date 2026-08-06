@@ -86,6 +86,29 @@
     });
   }
 
+  // Nom de jeu lisible a partir d'un lien vers l'annuaire Twitch
+  // ("/directory/category/escape-from-tarkov?filter=drops" -> "Escape from Tarkov").
+  // C'est la SEULE source utilisable : sur la page inventaire, le lien porte le libelle du
+  // bouton ("chaine en live participante"), jamais le nom du jeu, et celui-ci n'est ecrit
+  // nulle part ailleurs dans le bloc de campagne.
+  // C'est aussi la seule cle de JOINTURE stable entre les deux chemins de capture (inventaire
+  // et bandeau de stream) : deriver le nom du slug des deux cotes garantit qu'un meme jeu ne
+  // produit pas deux groupes dans l'historique.
+  const NAME_PARTICLES = ['of', 'the', 'from', 'and', 'in', 'on', 'a', 'an', 'to',
+    'de', 'du', 'des', 'la', 'le', 'les', 'et', 'un', 'une'];
+  function gameNameFromHref(href) {
+    const m = String(href || '').match(/\/directory\/(?:category|game)\/([^/?#]+)/);
+    if (!m) return '';
+    let slug;
+    try { slug = decodeURIComponent(m[1]); } catch (e) { slug = m[1]; }
+    return slug.split('-').filter(Boolean).map((w, i) => {
+      const low = w.toLowerCase();
+      // Les particules restent en minuscules sauf en tete ("escape-from-tarkov" -> "Escape from Tarkov").
+      if (i > 0 && NAME_PARTICLES.includes(low)) return low;
+      return low.charAt(0).toUpperCase() + low.slice(1);
+    }).join(' ');
+  }
+
   // Trie les drops en cours "le prochain d'abord" : ETA connu croissant en tete (c'est celui
   // qui tombera en premier), puis progression decroissante pour ceux dont la duree totale n'a
   // pas pu etre lue sur la page inventaire (remainingMin null).
@@ -166,7 +189,7 @@
   const api = {
     formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle,
     cleanDropName, pruneHistory, sortDropsByEta, tabState, isTabAlert,
-    groupDropsByGame, groupHistoryByGame
+    groupDropsByGame, groupHistoryByGame, gameNameFromHref
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TAUtil = api;

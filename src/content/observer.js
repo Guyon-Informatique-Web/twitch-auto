@@ -95,18 +95,19 @@ TA.dom = (function () {
   // Texte de progression ("56 % de 30 minutes", "2 h") : jamais un nom de jeu ni de campagne.
   function isProgressText(t) { return /%/.test(t) || /^\d+\s*(min|h|heure|hour|jour|day|sec)/i.test(t); }
 
-  // Nom lisible d'un lien vers l'annuaire : libelle, sinon alt de la vignette, sinon le slug
-  // de l'URL remis en forme (dernier recours : un lien sans texte ni alt existe, et sans nom
-  // de jeu il n'y a plus de regroupement du tout).
+  // Nom du jeu porte par un lien vers l'annuaire. On derive du SLUG de l'URL en priorite :
+  // sur la page inventaire le libelle du lien est celui d'un bouton ("chaine en live
+  // participante") et son alt est generique ("Image de campagne de drops"). Le slug est aussi
+  // identique quel que soit l'endroit ou on capte le jeu, ce qui evite deux groupes pour un
+  // meme jeu dans l'historique. Texte et alt ne servent que si l'URL n'est pas exploitable.
   function gameNameFrom(link) {
-    const txt = (link.textContent || '').trim();
-    if (txt && txt.length <= 60) return txt;
+    const fromHref = TAUtil.gameNameFromHref(link.getAttribute('href') || '');
+    if (fromHref) return fromHref;
     const img = link.querySelector && link.querySelector('img[alt]');
     const alt = img ? (img.getAttribute('alt') || '').trim() : '';
     if (alt && alt.length <= 60) return alt;
-    const m = (link.getAttribute('href') || '').match(/\/directory\/(?:category|game)\/([^/?#]+)/);
-    if (!m) return '';
-    return decodeURIComponent(m[1]).replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const txt = (link.textContent || '').trim();
+    return txt && txt.length <= 60 ? txt : '';
   }
 
   // Jeu de la chaine regardee (categorie affichee sous le titre du stream). Sert a etiqueter
@@ -140,6 +141,7 @@ TA.dom = (function () {
   }
 
   function campaignNameIn(block, game) {
+    const noise = (TA.selectors && TA.selectors.campaignNoise) || [];
     const pass = ['[role="heading"], h1, h2, h3, h4, h5, h6', 'p[class*="CoreText"]'];
     for (const sel of pass) {
       let nodes = [];
@@ -149,6 +151,7 @@ TA.dom = (function () {
         if (!t || t.length < 3 || t.length > 80) continue;
         if (t === game || isProgressText(t)) continue;
         if (/ic[oô]ne|image/i.test(t)) continue;
+        if (noise.some((re) => re.test(t))) continue;   // etats, dates, mentions de service
         return t;
       }
     }

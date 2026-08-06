@@ -81,6 +81,16 @@ TA.selectors = {
   // '/directory/game/' l'ancienne : on accepte les deux (Twitch a deja fait l'aller-retour).
   // Si plus rien ne matche, le regroupement disparait et la liste de drops reste intacte.
   gameLink: ['a[href*="/directory/category/"]', 'a[href*="/directory/game/"]'],
+  // Libelles a ECARTER quand on cherche le nom d'une campagne dans son bloc : etats, dates et
+  // mentions de service se presentent comme du texte ordinaire et seraient pris pour un nom
+  // ("En cours", "Date de fin : ..."). FR + EN, comme les autres listes de ce fichier.
+  campaignNoise: [
+    /^en cours$/i, /^in progress$/i, /^termin[eé]e?$/i, /^completed$/i, /^claimed$/i,
+    /^r[eé]cup[eé]r[eé]e?$/i, /^nouveau$/i, /^new$/i,
+    /date de fin|end date|expire/i,
+    /[àa] propos de ce drop|about this drop/i,
+    /n['’]est plus disponible|no longer available/i
+  ],
 
   // Anti-signaux LIVE : presents UNIQUEMENT quand la chaine courante est EN DIRECT.
   // Leur presence court-circuite toute detection hors-ligne (ils survivent a une pub, une
