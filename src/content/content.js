@@ -52,9 +52,38 @@ window.TA = window.TA || {};
       progressBars: document.querySelectorAll(S.dropProgress.join(',')).length
     };
   }
+  // Instantane de l'onglet pour la vue "En direct" du popup. LECTURE SEULE : aucun clic,
+  // aucune ecriture, aucun effet de bord (le popup interroge tous les onglets a son ouverture).
+  // Chaque etat vient du module qui le detient (watchdog pour le blocage, quality pour le 160p)
+  // plutot que d'etre rededuit ici a partir des reglages.
+  function liveState() {
+    const channel = TA.dom.currentChannel();
+    let playing = false;
+    for (const v of document.querySelectorAll('video')) {
+      if (!v.paused && !v.ended && v.readyState >= 2) { playing = true; break; }
+    }
+    const wd = (registry.watchdog && registry.watchdog.status) ? registry.watchdog.status() : null;
+    return {
+      channel,
+      inventory: location.pathname.startsWith('/drops'),
+      playing,
+      hidden: document.hidden,
+      // Hors page de chaine (inventaire, annuaire...), la detection hors-ligne n'a pas de sens.
+      offline: channel ? TA.dom.isChannelOffline() : false,
+      stalled: !!(wd && wd.stalled),
+      stalledMin: wd ? wd.stalledMin : null,
+      reloads: wd ? wd.reloads : 0,
+      lowQuality: !!(registry.quality && registry.quality.isLow && registry.quality.isLow()),
+      enabled: !!(settings && settings.enabled)
+    };
+  }
+
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg && msg.type === 'diagnose') {
       try { sendResponse(diagnose()); } catch (e) { sendResponse({ error: String(e) }); }
+    }
+    if (msg && msg.type === 'liveState') {
+      try { sendResponse(liveState()); } catch (e) { sendResponse({ error: String(e) }); }
     }
     return false;
   });

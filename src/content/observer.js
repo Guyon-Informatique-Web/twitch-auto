@@ -92,6 +92,69 @@ TA.dom = (function () {
     return seg;
   }
 
+  // Texte de progression ("56 % de 30 minutes", "2 h") : jamais un nom de jeu ni de campagne.
+  function isProgressText(t) { return /%/.test(t) || /^\d+\s*(min|h|heure|hour|jour|day|sec)/i.test(t); }
+
+  // Nom lisible d'un lien vers l'annuaire : libelle, sinon alt de la vignette, sinon le slug
+  // de l'URL remis en forme (dernier recours : un lien sans texte ni alt existe, et sans nom
+  // de jeu il n'y a plus de regroupement du tout).
+  function gameNameFrom(link) {
+    const txt = (link.textContent || '').trim();
+    if (txt && txt.length <= 60) return txt;
+    const img = link.querySelector && link.querySelector('img[alt]');
+    const alt = img ? (img.getAttribute('alt') || '').trim() : '';
+    if (alt && alt.length <= 60) return alt;
+    const m = (link.getAttribute('href') || '').match(/\/directory\/(?:category|game)\/([^/?#]+)/);
+    if (!m) return '';
+    return decodeURIComponent(m[1]).replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  // Jeu de la chaine regardee (categorie affichee sous le titre du stream). Sert a etiqueter
+  // un drop reclame depuis le bandeau d'un stream, ou la campagne n'est ecrite nulle part.
+  function currentGame() {
+    const link = findFirst((TA.selectors && TA.selectors.gameLink) || []);
+    return link ? gameNameFrom(link) : '';
+  }
+
+  // Remonte depuis un element (barre de progression, bouton de reclamation) jusqu'au bloc de
+  // campagne : le premier ancetre qui contient un lien vers l'annuaire du jeu. Le nom de
+  // campagne est le premier titre de ce bloc qui n'est ni le jeu ni un texte de progression ;
+  // les vrais titres sont testes avant les paragraphes CoreText (moins surs).
+  // Renvoie des chaines vides quand on ne conclut pas : l'affichage retombe alors sur une
+  // liste plate, il ne se casse jamais.
+  function findCampaign(fromEl) {
+    const sel = ((TA.selectors && TA.selectors.gameLink) || []).join(',');
+    const none = { game: '', campaign: '', block: null };
+    if (!sel) return none;
+    let el = fromEl;
+    for (let i = 0; i < 10 && el; i++) {
+      let link = null;
+      try { link = el.querySelector ? el.querySelector(sel) : null; } catch (e) { link = null; }
+      if (link) {
+        const game = gameNameFrom(link);
+        return { game, campaign: campaignNameIn(el, game), block: el };
+      }
+      el = el.parentElement;
+    }
+    return none;
+  }
+
+  function campaignNameIn(block, game) {
+    const pass = ['[role="heading"], h1, h2, h3, h4, h5, h6', 'p[class*="CoreText"]'];
+    for (const sel of pass) {
+      let nodes = [];
+      try { nodes = block.querySelectorAll(sel); } catch (e) { nodes = []; }
+      for (const n of nodes) {
+        const t = (n.textContent || '').trim();
+        if (!t || t.length < 3 || t.length > 80) continue;
+        if (t === game || isProgressText(t)) continue;
+        if (/ic[oô]ne|image/i.test(t)) continue;
+        return t;
+      }
+    }
+    return '';
+  }
+
   // Chaine courante HORS-LIGNE ? Detection robuste et CONSERVATRICE cote faux positif :
   // un faux "offline" empecherait le watchdog de relancer un live fige (= perte de farm).
   // On combine plusieurs signaux par OR, du plus fiable au moins fiable, source UNIQUE
@@ -118,5 +181,9 @@ TA.dom = (function () {
     return (S.offlinePatterns || []).some((re) => re.test(txt));
   }
 
-  return { isClickable, findFirst, findByText, click, subscribe, currentChannel, isChannelOffline, start: ensureObserving, stop: disconnect };
+  return {
+    isClickable, findFirst, findByText, click, subscribe,
+    currentChannel, currentGame, findCampaign, isProgressText, isChannelOffline,
+    start: ensureObserving, stop: disconnect
+  };
 })();

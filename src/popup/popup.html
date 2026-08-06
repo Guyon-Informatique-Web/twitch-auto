@@ -8,6 +8,8 @@
   <header class="head">
     <img src="../../icons/icon-32.png" alt="" width="28" height="28">
     <h1>Twitch Auto</h1>
+    <!-- Pastille d'etat : nb d'onglets qui farment, ou nb d'alertes (fige / hors-ligne). -->
+    <span id="pill" class="pill" aria-live="polite" hidden></span>
     <label class="switch" data-i18n-title="ui.toggle" title="Activer / desactiver">
       <input type="checkbox" id="master">
       <span class="slider"></span>
@@ -22,42 +24,39 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="stats" role="tab" aria-selected="true" data-i18n="ui.tab.stats">Stats</button>
+    <button class="tab" data-tab="live" role="tab" aria-selected="false" data-i18n="ui.tab.live">En direct</button>
     <button class="tab" data-tab="history" role="tab" aria-selected="false" data-i18n="ui.tab.history">Historique</button>
     <button class="tab" data-tab="settings" role="tab" aria-selected="false" data-i18n="ui.tab.settings">Reglages</button>
   </nav>
 
-  <!-- Onglet STATS -->
+  <!-- Onglet STATS : le prochain drop d'abord, les totaux en bandeau. -->
   <!-- Icones : jeu Lucide (https://lucide.dev), licence ISC -->
   <div class="panel" id="tab-stats">
-    <section class="stats" aria-live="polite">
-      <div class="stat" data-i18n-aria="ui.aria.points" aria-label="Points reclames">
-        <svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#00e0c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M6 3h12l4 6-10 13L2 9Z"/>
-          <path d="M11 3 8 9l4 13 4-13-3-6"/>
-          <path d="M2 9h20"/>
-        </svg>
-        <span class="val cyan" id="points-value">0</span>
-        <span class="stat-label" data-i18n="ui.stat.points">Points</span>
-        <span class="last" id="points-last">jamais</span>
+    <section class="totals" aria-live="polite">
+      <div class="tot">
+        <span class="tot-lab" data-i18n="ui.stat.points">Points</span>
+        <b class="cyan" id="points-value">0</b>
+        <i id="points-last">jamais</i>
       </div>
-      <div class="stat" data-i18n-aria="ui.aria.drops" aria-label="Drops reclames">
-        <svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#ffc83d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="8" width="18" height="4" rx="1"/>
-          <path d="M12 8v13"/>
-          <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/>
-          <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>
-        </svg>
-        <span class="val gold" id="drops-value">0</span>
-        <span class="stat-label" data-i18n="ui.stat.drops">Drops</span>
-        <span class="last" id="drops-last">jamais</span>
+      <div class="tot">
+        <span class="tot-lab" data-i18n="ui.stat.drops">Drops</span>
+        <b class="gold" id="drops-value">0</b>
+        <i id="drops-last">jamais</i>
+      </div>
+      <div class="tot">
+        <span class="tot-lab" data-i18n="ui.stat.watch">Visionnage</span>
+        <b id="watch-value">0</b>
+        <i id="watch-tabs"></i>
       </div>
     </section>
 
-    <p class="meta" id="meta"></p>
+    <section id="hero" class="hero-wrap" aria-live="polite"></section>
 
-    <section id="inprogress-section" hidden>
-      <h2 data-i18n="ui.inProgress">Drops en cours</h2>
-      <div id="inprogress"></div>
+    <!-- Titre pose en JS : "Campagnes" quand le regroupement par jeu a fonctionne,
+         "Ensuite" quand on retombe sur la liste plate. -->
+    <section id="next-section" hidden>
+      <h2 id="next-title">Ensuite</h2>
+      <div id="next"></div>
     </section>
 
     <section id="channels-section" hidden>
@@ -68,6 +67,11 @@
     <footer class="foot">
       <button id="open-inventory" class="btn" data-i18n="ui.openInventory">Ouvrir mon inventaire de drops</button>
     </footer>
+  </div>
+
+  <!-- Onglet EN DIRECT : une carte par onglet Twitch ouvert. -->
+  <div class="panel" id="tab-live" hidden>
+    <div id="live" class="live" aria-live="polite"></div>
   </div>
 
   <!-- Onglet HISTORIQUE -->
@@ -130,12 +134,24 @@
       <p id="diag-result" class="diag-result"></p>
     </div>
 
+    <!-- Sauvegarde : un seul fichier JSON pour reglages + compteurs + historique. -->
+    <section class="backup">
+      <h2 data-i18n="ui.backup">Sauvegarde</h2>
+      <div class="bk-row">
+        <button id="export" class="bk-btn primary" data-i18n="ui.exportBtn">Exporter</button>
+        <button id="import" class="bk-btn" data-i18n="ui.importBtn">Importer</button>
+      </div>
+      <!-- Selecteur de fichier masque, pilote par le bouton Importer. -->
+      <input type="file" id="import-file" accept="application/json,.json" hidden>
+      <p id="import-result" class="bk-result" role="status"></p>
+      <p class="bk-note" data-i18n="ui.backupNote"></p>
+    </section>
+
     <p id="diag" class="diag" role="alert"></p>
 
     <div class="foot-row settings-foot">
       <span id="version">v1.0.0</span>
       <span class="foot-actions">
-        <button id="export" class="link" data-i18n="ui.export">exporter</button>
         <button id="reset" class="link" data-i18n="ui.reset">reinitialiser</button>
       </span>
     </div>

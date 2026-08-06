@@ -57,6 +57,19 @@ TA.modules.watchdog = (function () {
   return {
     id: 'watchdog',
     settingKey: 'reload',
+    // Instantane pour l'onglet "En direct" du popup. Le watchdog est le seul a connaitre le
+    // seuil de blocage : c'est donc lui qui tranche "fige", jamais le popup (une seule source).
+    // null = module a l'arret (toggle Reload auto off) -> le popup n'affiche pas d'etat fige.
+    status() {
+      if (!timer) return null;
+      const ms = Math.max(0, Date.now() - lastOkTs);
+      const s = state();
+      return {
+        stalled: ms >= STALL,
+        stalledMin: Math.floor(ms / 60000),
+        reloads: (s.ch === TA.dom.currentChannel()) ? s.n : 0
+      };
+    },
     start() { lastOkTs = Date.now(); timer = setInterval(tick, CHECK); },
     stop() { if (timer) { clearInterval(timer); timer = null; } }
   };

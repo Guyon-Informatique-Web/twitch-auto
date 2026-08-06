@@ -2,7 +2,7 @@
 
 [Francais](README.md) - **English**
 
-Chrome extension (Manifest V3) that automates Twitch: auto-claim of **channel points** and **drops**, **multi-tab background farming**, auto player reload, and many AFK helpers. All inside a clean 3-tab popup.
+Chrome extension (Manifest V3) that automates Twitch: auto-claim of **channel points** and **drops**, **multi-tab background farming**, auto player reload, and many AFK helpers. All inside a clean 4-tab popup.
 
 > **Personal** use. Loaded in developer mode (not published on the Chrome Web Store).
 
@@ -15,8 +15,10 @@ Chrome extension (Manifest V3) that automates Twitch: auto-claim of **channel po
 - **Multi-tab farming**: drops progress on ALL open tabs in parallel (not only the active one), and background videos no longer pause.
 - **Auto reload** of the player on error (with an anti-loop guard).
 - **Min quality** (160p) and **mute** on background tabs, **anti-AFK** ("still watching" / mature content gates), **anti-pause**.
-- **Tracking**: watch time, active tabs, drops in progress with % and **estimated time remaining (ETA)**, per-channel stats, history.
-- **Notifications**, history **export**, **auto-update**, **auto inventory**, **auto-switch** to a fallback channel.
+- **Tracking**: watch time, drops in progress with % and **estimated time remaining (ETA)**, per-channel stats, history. The Stats tab highlights the **next drop** (the one landing first).
+- **Sorted by game and campaign**: drops in progress and history are grouped by game, then by campaign. Entries that could not be labelled (before v1.12, or claimed from an on-stream banner) stay visible under "No game".
+- **"Live" tab**: one card per open Twitch tab, with its real state (live / paused / frozen / offline / inventory), forced quality, mute and time spent on the channel. **Go to tab**, **Reload** (only when the player is frozen) and **Close** buttons. A pill in the header shows how many tabs are farming, or how many alerts.
+- **Notifications**, **backup** (export/import of settings, counters and history), **auto-update**, **auto inventory**, **auto-switch** to a fallback channel.
 - **Bilingual interface (FR / EN)**: language picker with flags in the settings tab; the popup and desktop notifications follow your choice (auto-detected from your browser by default).
 
 ## Installation
@@ -29,7 +31,7 @@ Chrome extension (Manifest V3) that automates Twitch: auto-claim of **channel po
 
 ## Usage
 
-- Click the icon -> 3-tab popup: **Stats** (counters, tracking, drops in progress), **History**, **Settings** (enable/disable each feature).
+- Click the icon -> 4-tab popup: **Stats** (next drop, counters, top channels), **Live** (state of every open Twitch tab), **History**, **Settings** (enable/disable each feature, language, backup).
 - **To farm drops hands-free**: keep a tab open on `twitch.tv/drops/inventory` **in the background**. The extension refreshes it on its own and claims completed drops. (Or enable the "Auto inventory" option, which does it for you.)
 - Drops progress across all your open stream tabs in parallel.
 

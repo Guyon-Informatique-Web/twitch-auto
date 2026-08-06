@@ -32,6 +32,7 @@ TA.modules.tracker = (function () {
     try {
       if (!location.pathname.startsWith('/drops')) return;
       const list = [];
+      const camps = {};   // "jeu|campagne" -> { total, done } : compte les barres VUES dans le DOM
       document.querySelectorAll(TA.selectors.dropProgress.join(',')).forEach((bar) => {
         let pct = null;
         const vt = bar.getAttribute('aria-valuetext') || '';
@@ -42,7 +43,14 @@ TA.modules.tracker = (function () {
           const max = Number(bar.getAttribute('aria-valuemax')) || 100;
           if (Number.isFinite(now) && max) pct = Math.round((now / max) * 100);
         }
-        if (pct == null || pct >= 100) return;
+        if (pct == null) return;
+        // Jeu + campagne AVANT le filtre : une barre a 100 % ne s'affiche pas, mais elle
+        // compte pour savoir combien de recompenses la campagne contient deja.
+        const meta = TA.dom.findCampaign(bar);
+        const key = meta.game + '|' + meta.campaign;
+        const c = camps[key] || (camps[key] = { total: 0, done: 0 });
+        c.total += 1;
+        if (pct >= 100) { c.done += 1; return; }
         // nom = 1er libelle CoreText qui n'est PAS un texte de progression ("56% de 30 minutes"...).
         // On ecarte les recompenses expirees, et on capte la duree totale pour estimer le temps restant.
         const isProgress = (t) => /%/.test(t) || /^\d+\s*(min|h|heure|jour|sec|de\b)/i.test(t);
@@ -68,7 +76,18 @@ TA.modules.tracker = (function () {
         }
         if (bad) return; // recompense expiree -> on ne l'affiche pas
         const remainingMin = (totalMin != null) ? Math.max(0, Math.round(totalMin * (1 - pct / 100))) : null;
-        list.push({ name, percent: Math.max(0, Math.min(100, pct)), remainingMin });
+        list.push({
+          name, percent: Math.max(0, Math.min(100, pct)), remainingMin,
+          game: meta.game, campaign: meta.campaign
+        });
+      });
+      // Compteur "n/m" d'une campagne : uniquement si des barres TERMINEES sont visibles dans
+      // ce DOM (done > 0). Sinon Twitch masque les recompenses deja recuperees et un "0/2"
+      // affirmerait faussement qu'aucune n'a ete prise : on laisse le popup afficher le
+      // nombre de drops en cours, seule valeur qu'on a reellement mesuree.
+      list.forEach((d) => {
+        const c = camps[d.game + '|' + d.campaign];
+        if (c && c.done > 0) { d.campDone = c.done; d.campTotal = c.total; }
       });
       send({ type: 'inprogress', list: list.slice(0, 12) });
     } catch (e) { TA.log.error('tracker', e); }

@@ -2,7 +2,7 @@
 
 **Francais** - [English](README.en.md)
 
-Extension Chrome (Manifest V3) qui automatise Twitch : auto-claim des **points de chaine** et des **drops**, **farming multi-onglets** en arriere-plan, reload auto du player, et de nombreuses aides AFK. Le tout dans un popup clair a 3 onglets.
+Extension Chrome (Manifest V3) qui automatise Twitch : auto-claim des **points de chaine** et des **drops**, **farming multi-onglets** en arriere-plan, reload auto du player, et de nombreuses aides AFK. Le tout dans un popup clair a 4 onglets.
 
 > Usage **personnel**. Extension chargee en mode developpeur (non publiee sur le Chrome Web Store).
 
@@ -15,8 +15,10 @@ Extension Chrome (Manifest V3) qui automatise Twitch : auto-claim des **points d
 - **Farming multi-onglets** : les drops progressent sur TOUS les onglets ouverts en parallele (pas seulement l'onglet actif), et les videos de fond ne se mettent plus en pause.
 - **Reload auto** du player en cas d'erreur (avec garde anti-boucle).
 - **Qualite mini** (160p) et **mute** sur les onglets en arriere-plan, **anti-AFK** (gates "toujours la" / contenu sensible), **anti-pause**.
-- **Suivi** : temps de visionnage, onglets actifs, drops en cours avec % et **temps restant estime (ETA)**, stats par chaine, historique.
-- **Notifications**, **export** de l'historique, **auto-MAJ**, **inventaire auto**, **auto-switch** vers une chaine de repli.
+- **Suivi** : temps de visionnage, drops en cours avec % et **temps restant estime (ETA)**, stats par chaine, historique. L'onglet Stats met en avant le **prochain drop** (celui qui tombera en premier).
+- **Range par jeu et par campagne** : les drops en cours et l'historique sont groupes par jeu puis par campagne. Les entrees qui n'ont pas pu etre etiquetees (avant la v1.12, ou reclamees depuis le bandeau d'un stream) restent visibles sous "Sans jeu".
+- **Onglet "En direct"** : une carte par onglet Twitch ouvert, avec son etat reel (en direct / en pause / fige / hors-ligne / inventaire), la qualite forcee, le mute et le temps passe sur la chaine. Boutons **Aller a l'onglet**, **Recharger** (si le lecteur est fige) et **Fermer**. Une pastille dans l'en-tete indique le nombre d'onglets qui farment, ou le nombre d'alertes.
+- **Notifications**, **sauvegarde** (export/import des reglages, compteurs et historique), **auto-MAJ**, **inventaire auto**, **auto-switch** vers une chaine de repli.
 - **Interface bilingue (FR / EN)** : selecteur de langue a drapeaux dans l'onglet Reglages ; le popup et les notifications desktop suivent ton choix (auto-detecte depuis ton navigateur par defaut).
 
 ## Installation
@@ -29,7 +31,7 @@ Extension Chrome (Manifest V3) qui automatise Twitch : auto-claim des **points d
 
 ## Utilisation
 
-- Clic sur l'icone -> popup a 3 onglets : **Stats** (compteurs, suivi, drops en cours), **Historique**, **Reglages** (active/desactive chaque fonction).
+- Clic sur l'icone -> popup a 4 onglets : **Stats** (prochain drop, compteurs, top chaines), **En direct** (etat de chaque onglet Twitch ouvert), **Historique**, **Reglages** (active/desactive chaque fonction, langue, sauvegarde).
 - **Pour farmer les drops sans rien faire** : garde un onglet ouvert sur `twitch.tv/drops/inventory` **en arriere-plan**. L'extension le rafraichit toute seule et reclame les drops termines. (Ou active l'option "Inventaire auto" qui le fait pour toi.)
 - Les drops progressent sur tous tes onglets de stream ouverts en parallele.
 

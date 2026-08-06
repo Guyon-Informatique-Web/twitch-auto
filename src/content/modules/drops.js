@@ -66,6 +66,22 @@ TA.modules.drops = (function () {
     return '';
   }
 
+  // Etiquetage jeu / campagne pour l'historique. Sur l'inventaire, le bloc de campagne porte le
+  // jeu ET le nom de campagne ; depuis le bandeau d'un stream la campagne n'est ecrite nulle
+  // part, on ne prend donc que la categorie de la chaine plutot que de deviner un nom faux.
+  // Isole dans son propre try : c'est un CONFORT d'affichage, il ne doit jamais faire echouer
+  // la remontee du claim (sinon un drop reclame ne serait pas compte).
+  function dropMeta(btn) {
+    try {
+      return onInventory()
+        ? TA.dom.findCampaign(btn)
+        : { game: TA.dom.currentGame(), campaign: '' };
+    } catch (e) {
+      TA.log.warn('drops', 'jeu / campagne illisibles, drop enregistre sans etiquette');
+      return { game: '', campaign: '' };
+    }
+  }
+
   function tick() {
     try {
       const now = Date.now();
@@ -83,7 +99,8 @@ TA.modules.drops = (function () {
       lastClick = now;
       recent.push(now);
       const name = getDropName(btn);
-      TA.report('drop', { name, channel: TA.dom.currentChannel() });
+      const meta = dropMeta(btn);
+      TA.report('drop', { name, channel: TA.dom.currentChannel(), game: meta.game, campaign: meta.campaign });
       TA.log.info('drops', name ? `drop reclame : ${name}` : 'drop reclame');
 
       // Claim depuis le bandeau d'un stream (hors page inventaire) : demande au

@@ -86,7 +86,88 @@
     });
   }
 
-  const api = { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle, cleanDropName, pruneHistory };
+  // Trie les drops en cours "le prochain d'abord" : ETA connu croissant en tete (c'est celui
+  // qui tombera en premier), puis progression decroissante pour ceux dont la duree totale n'a
+  // pas pu etre lue sur la page inventaire (remainingMin null).
+  function sortDropsByEta(list) {
+    if (!Array.isArray(list)) return [];
+    return list.slice().sort((a, b) => {
+      const ea = a && typeof a.remainingMin === 'number' ? a.remainingMin : null;
+      const eb = b && typeof b.remainingMin === 'number' ? b.remainingMin : null;
+      if (ea != null && eb != null) return ea - eb;
+      if (ea != null) return -1;  // un ETA connu passe devant un ETA inconnu
+      if (eb != null) return 1;
+      return ((b && b.percent) || 0) - ((a && a.percent) || 0);
+    });
+  }
+
+  // Regroupe les drops en cours par jeu, puis par campagne, en conservant l'ordre "le prochain
+  // d'abord" : chaque groupe sort a la place de son drop le plus proche de la fin. Les drops
+  // dont le jeu n'a pas pu etre lu forment un groupe a cle vide, toujours place en dernier
+  // (ils restent visibles : un regroupement rate ne doit jamais escamoter un drop).
+  function groupDropsByGame(list) {
+    const sorted = sortDropsByEta(list);
+    const games = [];
+    const byGame = new Map();
+    sorted.forEach((d) => {
+      const gKey = (d && d.game) || '';
+      let g = byGame.get(gKey);
+      if (!g) { g = { game: gKey, campaigns: [] }; byGame.set(gKey, g); games.push(g); }
+      const cKey = (d && d.campaign) || '';
+      let c = g.campaigns.find((x) => x.campaign === cKey);
+      if (!c) { c = { campaign: cKey, drops: [], done: null, total: null }; g.campaigns.push(c); }
+      c.drops.push(d);
+      // Compteur "n/m" : present uniquement quand le tracker a vu des recompenses terminees.
+      if (d && d.campDone != null && d.campTotal != null) { c.done = d.campDone; c.total = d.campTotal; }
+    });
+    return games.filter((g) => g.game).concat(games.filter((g) => !g.game));
+  }
+
+  // Regroupe l'historique par jeu pour l'affichage. Entree attendue dans l'ordre d'affichage
+  // (la plus recente d'abord) ; l'ordre est conserve dans chaque groupe, et les groupes sortent
+  // dans l'ordre de leur entree la plus recente. Deux groupes a part : les paliers de points
+  // (qui n'ont jamais de jeu) gardent leur place chronologique, tandis que les drops non
+  // etiquetes - historique d'avant la v1.12, ou claim sans categorie lisible - passent en fin.
+  function groupHistoryByGame(entries) {
+    if (!Array.isArray(entries)) return [];
+    // Cles PREFIXEES : 'p' pour les paliers de points, 'g:<jeu>' pour un jeu ('g:' = non
+    // etiquete). Aucun nom de jeu lu dans le DOM ne peut donc percuter le groupe des points.
+    const groups = [];
+    const byKey = new Map();
+    entries.forEach((e) => {
+      const points = !!(e && e.type === 'points');
+      const game = (!points && e && e.game) || '';
+      const key = points ? 'p' : 'g:' + game;
+      let g = byKey.get(key);
+      if (!g) { g = { key, game, points, entries: [] }; byKey.set(key, g); groups.push(g); }
+      g.entries.push(e);
+    });
+    return groups.filter((g) => g.key !== 'g:').concat(groups.filter((g) => g.key === 'g:'));
+  }
+
+  // Etat d'un onglet Twitch pour l'onglet "En direct", a partir de l'instantane renvoye par
+  // le content script (null / undefined = pas de reponse : script pas encore injecte).
+  // Ordre volontaire : les deux ANOMALIES (hors-ligne, fige) priment sur l'etat de lecture.
+  // Note : 'stalled' vient du watchdog, seul detenteur du seuil de blocage ; s'il est
+  // desactive on retombe sur 'paused' plutot que d'inventer un second seuil ici.
+  function tabState(snap) {
+    if (!snap) return 'loading';
+    if (snap.inventory) return 'inventory';
+    if (!snap.channel) return 'other';
+    if (snap.offline) return 'offline';
+    if (snap.playing) return 'live';
+    if (snap.stalled) return 'stalled';
+    return 'paused';
+  }
+
+  // Etats qui meritent la pastille d'alerte de l'en-tete (farm interrompu sans qu'on le sache).
+  function isTabAlert(state) { return state === 'offline' || state === 'stalled'; }
+
+  const api = {
+    formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle,
+    cleanDropName, pruneHistory, sortDropsByEta, tabState, isTabAlert,
+    groupDropsByGame, groupHistoryByGame
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TAUtil = api;
 })(typeof self !== 'undefined' ? self : this);

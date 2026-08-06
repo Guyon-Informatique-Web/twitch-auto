@@ -181,7 +181,13 @@ function handleClaim(msg) {
     } else if (msg.kind === 'drop') {
       s.dropsClaimed += 1;
       s.lastDropsClaim = now;
-      history.push({ type: 'drop', name: msg.name || '', ts: now });
+      // game / campaign servent au regroupement dans l'historique. Champs OPTIONNELS : les
+      // entrees d'avant la v1.12 et les claims sans categorie lisible n'en ont pas, et le
+      // popup les range alors dans un groupe "sans jeu" au lieu de les perdre.
+      const entry = { type: 'drop', name: msg.name || '', ts: now };
+      if (msg.game) entry.game = msg.game;
+      if (msg.campaign) entry.campaign = msg.campaign;
+      history.push(entry);
       if (settings.notifications) {
         const body = msg.name ? TAi18n.t(lang, 'notif.drop.bodyNamed', { name: msg.name }) : TAi18n.t(lang, 'notif.drop.bodyAnon');
         notify(TAi18n.t(lang, 'notif.drop.title'), body);

@@ -75,6 +75,13 @@ TA.selectors = {
   // Barre de progression d'un drop en cours (page inventaire).
   dropProgress: ['[role="progressbar"]'],
 
+  // Regroupement par jeu / campagne. Signal STRUCTUREL et non cosmetique : le nom du jeu est
+  // toujours un lien vers l'annuaire, aussi bien dans l'en-tete d'une campagne (inventaire)
+  // que sous le titre d'un stream. '/directory/category/' est la forme actuelle,
+  // '/directory/game/' l'ancienne : on accepte les deux (Twitch a deja fait l'aller-retour).
+  // Si plus rien ne matche, le regroupement disparait et la liste de drops reste intacte.
+  gameLink: ['a[href*="/directory/category/"]', 'a[href*="/directory/game/"]'],
+
   // Anti-signaux LIVE : presents UNIQUEMENT quand la chaine courante est EN DIRECT.
   // Leur presence court-circuite toute detection hors-ligne (ils survivent a une pub, une
   // pause ou un gate contenu mature : le stream reste live derriere). On matche l'attribut

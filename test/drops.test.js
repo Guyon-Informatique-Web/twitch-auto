@@ -41,13 +41,14 @@ function advance(ms) {
 function setClock(v) { clock = v; }
 
 // Charge drops.js a neuf avec un faux DOM/TA. Renvoie les leviers de pilotage.
-function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName = null } = {}) {
+function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName = null, bruteMeta = false } = {}) {
   installEnv();
 
   let reloadCount = 0;
   let inventoryReloadCount = 0;
   const clickedEls = [];
   const reportedNames = [];
+  const reported = [];
   // Un bouton de claim ; quand cardName est fourni, son libelle CoreText interne sert de nom.
   const btn = {
     textContent: 'En profiter',
@@ -70,7 +71,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
       dropClaimExact: ['en profiter']
     },
     log: { info() {}, warn() {}, error() {} },
-    report: (kind, payload) => { reportedNames.push(payload && payload.name); },
+    report: (kind, payload) => { reportedNames.push(payload && payload.name); reported.push(payload || {}); },
     reloadInventory: () => { inventoryReloadCount += 1; }
   };
 
@@ -79,7 +80,10 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
     subscribe: (cb) => { tickCb = cb; cb(); return () => {}; },
     isClickable: () => true,
     click: (el) => { clickedEls.push(el); return true; },
-    currentChannel: () => 'chan'
+    currentChannel: () => 'chan',
+    // Etiquetage jeu / campagne (v1.12) : bruteMeta simule une page ou la lecture echoue.
+    findCampaign: () => { if (bruteMeta) throw new Error('DOM inattendu'); return { game: 'Rust', campaign: 'Round 21' }; },
+    currentGame: () => { if (bruteMeta) throw new Error('DOM inattendu'); return 'Rust'; }
   };
 
   delete require.cache[require.resolve(path.join(__dirname, '../src/content/modules/drops.js'))];
@@ -94,7 +98,8 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
     clickedEls,
     reloadCount: () => reloadCount,
     inventoryReloadCount: () => inventoryReloadCount,
-    lastReportedName: () => reportedNames[reportedNames.length - 1]
+    lastReportedName: () => reportedNames[reportedNames.length - 1],
+    lastReported: () => reported[reported.length - 1]
   };
 }
 
@@ -164,6 +169,35 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
   const d = loadDrops({ pathname: '/somestreamer', hasButton: true, cardName: 'Récupérer Shooting Star' });
   d.mod.start();
   assert.strictEqual(d.lastReportedName(), 'Shooting Star', 'le verbe Recuperer doit etre retire du nom du drop');
+  d.mod.stop();
+}
+
+// --- Cas 8 : etiquetage jeu / campagne remonte avec le claim (page inventaire) ---
+{
+  const d = loadDrops({ pathname: '/drops/inventory', hasButton: true });
+  d.mod.start();
+  assert.strictEqual(d.lastReported().game, 'Rust', 'le jeu doit accompagner le claim');
+  assert.strictEqual(d.lastReported().campaign, 'Round 21', 'la campagne doit accompagner le claim');
+  d.mod.stop();
+}
+
+// --- Cas 9 : sur un stream, on etiquette le JEU mais jamais la campagne (invisible dans le DOM) ---
+{
+  const d = loadDrops({ pathname: '/somestreamer', hasButton: true });
+  d.mod.start();
+  assert.strictEqual(d.lastReported().game, 'Rust');
+  assert.strictEqual(d.lastReported().campaign, '', 'aucune campagne ne doit etre inventee hors inventaire');
+  d.mod.stop();
+}
+
+// --- Cas 10 (CLE) : si la lecture du jeu explose, le drop est quand meme COMPTE ---
+//     L'etiquette est un confort d'affichage ; la perdre ne doit jamais coûter un claim.
+{
+  const d = loadDrops({ pathname: '/drops/inventory', hasButton: true, bruteMeta: true });
+  d.mod.start();
+  assert.strictEqual(d.clickedEls.length, 1, 'le drop doit etre reclame malgre l echec d etiquetage');
+  assert.ok(d.lastReported(), 'le claim doit etre remonte au background');
+  assert.strictEqual(d.lastReported().game, '', 'sans jeu lisible, l entree part sans etiquette');
   d.mod.stop();
 }
 
