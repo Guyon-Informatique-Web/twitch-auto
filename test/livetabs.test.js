@@ -38,8 +38,14 @@ assert.strictEqual(sortDropsByEta([{ name: 'x', percent: 10 }, { name: 'zero', r
   'zero', 'remainingMin = 0 doit rester un ETA connu, donc en tete');
 
 // --- tabState : les anomalies priment sur l etat de lecture ---
-assert.strictEqual(tabState(null), 'loading', 'pas de reponse du content script -> chargement');
-assert.strictEqual(tabState(undefined), 'loading');
+assert.strictEqual(tabState(null), 'loading', 'pas de reponse et statut inconnu -> chargement');
+assert.strictEqual(tabState(undefined, 'loading'), 'loading');
+// CLE : pas de reponse sur une page DEJA chargee = script absent (extension rechargee depuis
+// l'ouverture de l'onglet). C'est un etat durable qui demande un rechargement, pas un transitoire.
+assert.strictEqual(tabState(null, 'complete'), 'unreachable',
+  'un onglet charge qui ne repond pas ne farme plus : il faut le distinguer d un chargement en cours');
+// Un onglet qui repond n'est jamais injoignable, quel que soit son statut de chargement.
+assert.strictEqual(tabState({ channel: 'a', playing: true }, 'complete'), 'live');
 assert.strictEqual(tabState({ inventory: true, channel: '' }), 'inventory');
 assert.strictEqual(tabState({ channel: '' }), 'other', 'page Twitch hors chaine');
 assert.strictEqual(tabState({ channel: 'a', playing: true }), 'live');
@@ -56,6 +62,9 @@ assert.strictEqual(tabState({ channel: 'a', inventory: true, playing: true }), '
 // --- isTabAlert : ce qui merite la pastille ambre ---
 assert.strictEqual(isTabAlert('offline'), true);
 assert.strictEqual(isTabAlert('stalled'), true);
+// Un onglet injoignable a l'air normal dans la barre d'onglets mais ne rapporte plus rien :
+// c'est exactement le "farm interrompu sans qu'on le sache" que la pastille doit signaler.
+assert.strictEqual(isTabAlert('unreachable'), true);
 ['live', 'paused', 'inventory', 'other', 'loading'].forEach((s) => {
   assert.strictEqual(isTabAlert(s), false, `${s} n est pas une alerte`);
 });

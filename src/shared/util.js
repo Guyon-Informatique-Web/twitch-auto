@@ -168,13 +168,17 @@
     return groups.filter((g) => g.key !== 'g:').concat(groups.filter((g) => g.key === 'g:'));
   }
 
-  // Etat d'un onglet Twitch pour l'onglet "En direct", a partir de l'instantane renvoye par
-  // le content script (null / undefined = pas de reponse : script pas encore injecte).
-  // Ordre volontaire : les deux ANOMALIES (hors-ligne, fige) priment sur l'etat de lecture.
+  // Etat d'un onglet Twitch pour l'onglet "En direct", a partir de l'instantane renvoye par le
+  // content script (null / undefined = pas de reponse) et du statut de chargement de l'onglet.
+  // Pas de reponse sur une page DEJA chargee ('complete') = le script n'y tourne pas : c'est
+  // le cas apres une mise a jour de l'extension, qui invalide les scripts deja injectes.
+  // L'onglet ne farme plus du tout et il faut le recharger -> etat distinct de 'loading',
+  // qui lui est transitoire et se resout tout seul.
+  // Ordre volontaire ensuite : les ANOMALIES priment sur l'etat de lecture.
   // Note : 'stalled' vient du watchdog, seul detenteur du seuil de blocage ; s'il est
   // desactive on retombe sur 'paused' plutot que d'inventer un second seuil ici.
-  function tabState(snap) {
-    if (!snap) return 'loading';
+  function tabState(snap, tabStatus) {
+    if (!snap) return tabStatus === 'complete' ? 'unreachable' : 'loading';
     if (snap.inventory) return 'inventory';
     if (!snap.channel) return 'other';
     if (snap.offline) return 'offline';
@@ -184,7 +188,10 @@
   }
 
   // Etats qui meritent la pastille d'alerte de l'en-tete (farm interrompu sans qu'on le sache).
-  function isTabAlert(state) { return state === 'offline' || state === 'stalled'; }
+  // 'unreachable' en fait partie : l'onglet a l'air normal mais ne rapporte plus rien.
+  function isTabAlert(state) {
+    return state === 'offline' || state === 'stalled' || state === 'unreachable';
+  }
 
   const api = {
     formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle,

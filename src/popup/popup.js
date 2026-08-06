@@ -38,7 +38,7 @@ const RELEASES_URL = 'https://github.com/Guyon-Informatique-Web/twitch-auto/rele
 const DL_PREFIX = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/download/';
 const LIVE_REFRESH_MS = 5000;   // rafraichissement de la vue "En direct" tant que le popup est ouvert
 // Ordre d'affichage des cartes : les anomalies en haut (c'est ce qu'on doit voir en premier).
-const STATE_ORDER = { stalled: 0, offline: 1, live: 2, paused: 3, inventory: 4, other: 5, loading: 6 };
+const STATE_ORDER = { stalled: 0, offline: 1, unreachable: 2, live: 3, paused: 4, inventory: 5, other: 6, loading: 7 };
 
 let lastUpdate = null;   // derniere info de MAJ connue (pour le bouton telecharger)
 let currentLang = 'fr';  // langue active du popup (resolue depuis settings.lang ou auto)
@@ -397,7 +397,7 @@ async function collectTabs() {
   try { tabs = await chrome.tabs.query({ url: 'https://www.twitch.tv/*' }); } catch (e) { return []; }
   const snaps = await Promise.all(tabs.map((tab) => (tab.id != null ? askTab(tab.id) : Promise.resolve(null))));
   return tabs
-    .map((tab, i) => ({ tab, snap: snaps[i], state: TAUtil.tabState(snaps[i]) }))
+    .map((tab, i) => ({ tab, snap: snaps[i], state: TAUtil.tabState(snaps[i], tab.status) }))
     .sort((a, b) => (STATE_ORDER[a.state] - STATE_ORDER[b.state]) || 0);
 }
 
@@ -438,6 +438,8 @@ function makeLiveCard(entry) {
     const parts = [t('live.stalledTxt', { n: snap.stalledMin != null ? snap.stalledMin : '?' })];
     if (snap.reloads) parts.push(t('live.reloadsN', { n: snap.reloads, s: plural(snap.reloads) }));
     txt.textContent = parts.join(' ');
+  } else if (state === 'unreachable') {
+    txt.textContent = t('live.unreachableTxt');
   } else if (state === 'inventory') {
     txt.textContent = t('live.inventoryTxt');
   } else if (state === 'other') {
@@ -454,9 +456,10 @@ function makeLiveCard(entry) {
   if (snap && snap.enabled === false) foot.appendChild(chip(t('live.chip.off')));
 
   const acts = document.createElement('span'); acts.className = 'lcard-acts';
-  // Recharger n'a de sens que pour un lecteur FIGE. Sur une chaine hors-ligne ca ne ramene
-  // rien (c'est d'ailleurs pour ca que le reloader exclut cet etat, cf. reloadExcludePatterns).
-  if (state === 'stalled') {
+  // Recharger a du sens pour un lecteur FIGE et pour un onglet injoignable (c'est meme le
+  // seul remede la). Sur une chaine hors-ligne ca ne ramene rien : le reloader exclut deja
+  // cet etat pour la meme raison (cf. reloadExcludePatterns).
+  if (state === 'stalled' || state === 'unreachable') {
     acts.appendChild(makeButton(t('live.reload'), 'act', () => {
       if (tab.id != null) chrome.tabs.reload(tab.id);
       loadLive();
