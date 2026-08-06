@@ -35,9 +35,10 @@ TA.modules.quality = (function () {
   return {
     id: 'quality',
     settingKey: 'lowQuality',
-    // Vrai quand la qualite basse est REELLEMENT forcee en ce moment (pastille du popup) :
-    // on renvoie l'etat du module, pas une deduction reglage + visibilite cote popup.
-    isLow() { return saved != null; },
+    // Vrai quand l'onglet EST en qualite basse (pastille du popup). On lit l'etat effectif, pas
+    // "est-ce que ce module a ecrit la valeur" : quand le lecteur etait deja en 160p, setLow()
+    // n'ecrit rien et 'saved' reste null alors que l'onglet est bel et bien en 160p.
+    isLow() { return readQ().default === LOW; },
     start() {
       if (document.hidden) setLow();
       document.addEventListener('visibilitychange', onVis);
