@@ -2,7 +2,7 @@
 // Invariant central : le regroupement peut echouer - Twitch renomme sa page, un claim vient du
 // bandeau d'un stream - mais AUCUNE entree ne doit disparaitre au passage.
 const assert = require('assert');
-const { groupDropsByGame, groupHistoryByGame, gameNameFromHref } = require('../src/shared/util.js');
+const { groupDropsByGame, groupHistoryByDay, dayKey, gameNameFromHref, gameSlugFromHref, participateUrl } = require('../src/shared/util.js');
 
 // --- Nom de jeu derive du slug ---
 // Les hrefs ci-dessous sont RELEVES sur la vraie page inventaire : le libelle du lien y est
@@ -85,40 +85,32 @@ assert.strictEqual(g[0].campaigns[0].drops.length, 2);
 assert.deepStrictEqual(groupDropsByGame([]), []);
 assert.deepStrictEqual(groupDropsByGame(null), []);
 
-// --- Historique ---
-// Entree dans l'ordre d'AFFICHAGE (la plus recente d'abord).
+// --- Slug du jeu et annuaire des chaines participantes (v1.13) ---
+assert.strictEqual(gameSlugFromHref('/directory/category/escape-from-tarkov?filter=drops'), 'escape-from-tarkov');
+assert.strictEqual(gameSlugFromHref('https://www.twitch.tv/directory/game/rust'), 'rust');
+assert.strictEqual(gameSlugFromHref('/directory/category/pubg%3A-battlegrounds'), 'pubg%3A-battlegrounds', 'slug garde tel quel (deja encode)');
+assert.strictEqual(gameSlugFromHref('/videos/1'), '');
+assert.strictEqual(participateUrl('rust'), 'https://www.twitch.tv/directory/category/rust?filter=drops&tawatch=1');
+assert.strictEqual(participateUrl(''), '');
+
+// --- Historique par jour (v1.13) ---
+// Entree dans l'ordre d'AFFICHAGE (la plus recente d'abord), en heure LOCALE.
+const D = (y, m, d, h) => new Date(y, m - 1, d, h).getTime();
 const hist = [
-  { type: 'drop', name: 'Cap', ts: 500, game: 'Rust', campaign: 'R21' },
-  { type: 'points', amount: 25000, ts: 400 },
-  { type: 'drop', name: 'Vieux', ts: 300 },
-  { type: 'drop', name: 'Hoodie', ts: 200, game: 'Rust', campaign: 'R21' }
+  { type: 'drop', name: 'Cap', ts: D(2026, 10, 6, 14), game: 'Rust', campaign: 'R21' },
+  { type: 'points', amount: 25000, ts: D(2026, 10, 6, 9) },
+  { type: 'drop', name: 'Hoodie', ts: D(2026, 10, 5, 22) },
+  { type: 'drop', name: 'Vieux', ts: D(2026, 10, 3, 1) },
+  { type: 'drop', name: 'Sans date' }
 ];
-let h = groupHistoryByGame(hist);
-assert.deepStrictEqual(h.map((x) => (x.points ? '<points>' : x.game)), ['Rust', '<points>', ''],
-  'groupes par recence, paliers de points a leur place chronologique, non etiquetes en dernier');
-assert.deepStrictEqual(h[0].entries.map((e) => e.name), ['Cap', 'Hoodie'], 'ordre conserve dans le groupe');
-assert.strictEqual(h[1].points, true, 'le groupe des paliers est marque comme tel');
-assert.strictEqual(h[1].game, '', 'un palier de points n a pas de jeu');
-assert.strictEqual(h[2].entries[0].name, 'Vieux', 'une entree d avant l etiquetage reste visible');
-
-// Total conserve : aucune entree perdue, quel que soit l etiquetage.
-const total = groupHistoryByGame(hist).reduce((n, x) => n + x.entries.length, 0);
-assert.strictEqual(total, hist.length, 'le regroupement ne doit jamais perdre une entree');
-
-// Un jeu qui s'appellerait "points" ne doit PAS tomber dans le groupe des paliers : les cles
-// sont prefixees ('g:' contre 'p'), donc aucune collision possible avec un nom lu dans le DOM.
-h = groupHistoryByGame([{ type: 'drop', name: 'd', ts: 1, game: 'points' }, { type: 'points', amount: 5, ts: 2 }]);
-assert.strictEqual(h.length, 2);
-assert.strictEqual(h.filter((x) => x.points).length, 1);
-assert.strictEqual(h.find((x) => !x.points).entries[0].name, 'd');
-
-// Historique 100 % non etiquete -> un seul groupe vide (repli en liste plate cote popup).
-h = groupHistoryByGame([{ type: 'drop', name: 'a', ts: 2 }, { type: 'drop', name: 'b', ts: 1 }]);
-assert.strictEqual(h.length, 1);
-assert.strictEqual(h[0].game, '');
-assert.strictEqual(h[0].points, false);
-
-assert.deepStrictEqual(groupHistoryByGame([]), []);
-assert.deepStrictEqual(groupHistoryByGame(null), []);
+const h = groupHistoryByDay(hist);
+assert.deepStrictEqual(h.map((g) => g.day), ['2026-10-06', '2026-10-05', '2026-10-03', ''],
+  'un groupe par jour, du plus recent au plus ancien, les entrees sans date a la fin');
+assert.deepStrictEqual(h[0].entries.map((e) => e.name || e.type), ['Cap', 'points'], 'ordre conserve dans le jour');
+assert.strictEqual(h.reduce((n, g) => n + g.entries.length, 0), hist.length, 'aucune entree perdue');
+assert.strictEqual(dayKey(D(2026, 1, 2, 0)), '2026-01-02', 'mois et jour sur deux chiffres');
+assert.strictEqual(dayKey(undefined), '');
+assert.deepStrictEqual(groupHistoryByDay([null, 5]), [], 'entrees mal formees ignorees');
+assert.deepStrictEqual(groupHistoryByDay(null), []);
 
 console.log('OK groupes jeu / campagne');

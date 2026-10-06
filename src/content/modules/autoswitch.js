@@ -1,5 +1,8 @@
 // Auto-switch : quand la chaine regardee passe hors-ligne, bascule vers une chaine de repli
 // (reglee dans le popup). Desactive par defaut (il redirige l'onglet).
+// Depuis la v1.13, une LISTE ordonnee : on part sur la chaine qui suit la chaine courante dans la
+// liste (la premiere si on n'y est pas). Si elle est hors ligne a son tour, son propre
+// auto-switch passe a la suivante ; arrive au bout de la liste, on reste sur place.
 window.TA = window.TA || {};
 TA.modules = TA.modules || {};
 TA.modules.autoswitch = (function () {
@@ -21,6 +24,16 @@ TA.modules.autoswitch = (function () {
     try { sessionStorage.setItem(KEY, JSON.stringify(recent(now).concat(now))); } catch (e) { /* quota */ }
   }
 
+  // Chaines de repli en slugs : la liste, ou a defaut l'ancienne chaine unique (avant la v1.13).
+  function targets() {
+    const s = TA.settings || {};
+    const reserved = (TA.selectors && TA.selectors.notChannelPaths) || [];
+    const raw = Array.isArray(s.autoSwitchChannels) && s.autoSwitchChannels.length ? s.autoSwitchChannels : [s.autoSwitchUrl || ''];
+    const out = [];
+    raw.forEach((x) => { const slug = TAUtil.channelSlug(x, reserved); if (slug && !out.includes(slug)) out.push(slug); });
+    return out.slice(0, 5);
+  }
+
   function tick() {
     try {
       if (done) return;
@@ -32,9 +45,9 @@ TA.modules.autoswitch = (function () {
       if (ch !== hitsCh) { hitsCh = ch; offlineHits = 0; }
       // Cible ramenee a un slug : on compare des CHAINES, plus des prefixes d'URL. Une saisie
       // sans "www", avec une autre casse ou relative faisait boucler la redirection.
-      const raw = (TA.settings && TA.settings.autoSwitchUrl) || '';
-      const target = TAUtil.channelSlug(raw, (TA.selectors && TA.selectors.notChannelPaths) || []);
-      if (!target || target === ch) return;                // pas de cible valide, ou deja dessus
+      const list = targets();
+      const target = TAUtil.nextFallback(list, ch);
+      if (!target || target === ch) return;                // pas de cible, ou bout de la liste atteint
       // Detection hors-ligne mutualisee (TA.dom) : meme garde live HLS que le watchdog.
       if (!TA.dom.isChannelOffline()) { offlineHits = 0; return; }
       // On exige 2 verifications consecutives avant de quitter : evite de partir pendant la
@@ -42,8 +55,9 @@ TA.modules.autoswitch = (function () {
       if (++offlineHits < 2) return;
       done = true;
       const now = Date.now();
-      if (!TAUtil.shouldReload(recent(now), now, MAX, WINDOW)) {
-        TA.log.warn('autoswitch', `${MAX} bascules en 10 min : on reste sur place`);
+      const cap = Math.max(MAX, list.length);              // une liste de 5 doit pouvoir etre parcourue
+      if (!TAUtil.shouldReload(recent(now), now, cap, WINDOW)) {
+        TA.log.warn('autoswitch', `${cap} bascules en 10 min : on reste sur place`);
         return;                                            // done reste vrai jusqu'au prochain chargement
       }
       TA.log.info('autoswitch', `chaine hors-ligne -> bascule vers ${target}`);

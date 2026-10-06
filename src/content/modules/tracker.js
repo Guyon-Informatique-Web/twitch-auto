@@ -30,7 +30,9 @@ TA.modules.tracker = (function () {
     // L'onglet compte comme "actif" tant qu'il est sur une chaine (meme pendant une pub) ;
     // le temps de visionnage ne s'incremente que si la video joue vraiment.
     const playing = isPlaying();
-    send({ type: 'watch', channel, seconds: playing ? Math.round(BEAT_MS / 1000) : 0 });
+    // Le jeu accompagne le battement : le temps de lecture est aussi compte PAR JEU.
+    const gameSlug = playing ? TA.dom.currentGameSlug() : '';
+    send({ type: 'watch', channel, seconds: playing ? Math.round(BEAT_MS / 1000) : 0, gameSlug });
   }
 
   function snapshotInProgress() {
@@ -83,7 +85,10 @@ TA.modules.tracker = (function () {
         const remainingMin = (totalMin != null) ? Math.max(0, Math.round(totalMin * (1 - pct / 100))) : null;
         list.push({
           name, percent: Math.max(0, Math.min(100, pct)), remainingMin,
-          game: meta.game, campaign: meta.campaign
+          game: meta.game, campaign: meta.campaign,
+          // Date de fin arrondie au quart d'heure : une date relative ("dans 3 jours") ne change
+          // plus a chaque releve (sinon 'stats' etait reecrit toutes les 30 s).
+          gameSlug: meta.slug || '', campEnds: meta.endsAt ? Math.round(meta.endsAt / 9e5) * 9e5 : null
         });
       });
       // Compteur "n/m" d'une campagne : uniquement si des barres TERMINEES sont visibles dans
@@ -94,7 +99,9 @@ TA.modules.tracker = (function () {
         const c = camps[d.game + '|' + d.campaign];
         if (c && c.done > 0) { d.campDone = c.done; d.campTotal = c.total; }
       });
-      send({ type: 'inprogress', list: list.slice(0, 12) });
+      // Age de la page : sans module drops, l'inventaire n'est plus recharge et ses barres sont
+      // figees ; le service worker ne juge alors aucun drop "bloque".
+      send({ type: 'inprogress', list: list.slice(0, 12), pageAge: Math.round(performance.now()) });
     } catch (e) { TA.log.error('tracker', e); }
   }
 

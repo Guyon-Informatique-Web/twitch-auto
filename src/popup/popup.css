@@ -105,6 +105,19 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 .empty p:last-child { margin-bottom: 0; }
 .empty-note { font-size: 10.5px; color: var(--dim); text-align: center; margin: 8px 0 0; }
 
+/* ---- Alerte "drop bloque" ---- */
+.stuck { display: flex; flex-direction: column; gap: 8px; }
+.stuck[hidden] { display: none; }
+.alertbox { display: flex; gap: 9px; padding: 10px 11px; border-radius: 10px; background: #2a2113; color: var(--gold); font-size: 11.5px; line-height: 1.45; }
+.alertbox .fic { flex: 0 0 auto; margin-top: 1px; }
+.alertbox b { color: #ffe1a1; font-weight: 600; }
+.alert-act { display: block; min-height: 24px; margin-top: 7px; font-size: 11px; font-weight: 700; color: var(--gold); background: none; border: 1px solid #6b4a1a; border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+.alert-act:hover { border-color: var(--gold); }
+.alert-act:disabled, .alert-act[aria-disabled="true"] { opacity: .6; cursor: default; }
+.alert-act[aria-disabled="true"]:hover { border-color: #6b4a1a; }
+/* Lu par les lecteurs d'ecran, invisible a l'ecran, hors du flux (pas d'espace en plus). */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
 /* ---- Drops suivants ---- */
 #next { display: flex; flex-direction: column; }
 .nx-row { display: flex; align-items: center; gap: 9px; padding: 6px 0; }
@@ -127,6 +140,14 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 .camp-eta { font-size: 10.5px; color: var(--gold); font-weight: 600; font-variant-numeric: tabular-nums; width: 50px; text-align: right; flex: 0 0 auto; }
 .camp-bar { height: 3px; border-radius: 2px; background: #2f2f35; overflow: hidden; }
 .camp-bar i { display: block; height: 100%; background: var(--gold); }
+/* Fin de campagne et lien vers une chaine participante, sous les drops du bloc. */
+.camp-end { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-size: 10.5px; color: var(--muted); }
+.camp-end .fic { flex: 0 0 auto; color: var(--dim); }
+.camp-end.warn, .camp-end.warn .fic { color: var(--gold); }
+.camp-act { min-height: 24px; margin-top: 8px; font-size: 10.5px; color: #c8c8d0; background: none; border: 1px solid #3a3a42; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+.camp-act:hover { border-color: var(--purple); color: var(--text); }
+.camp-act:disabled, .camp-act[aria-disabled="true"] { opacity: .6; cursor: default; }
+.camp-act[aria-disabled="true"]:hover { border-color: #3a3a42; color: #c8c8d0; }
 
 /* ---- Top chaines ---- */
 #channels { display: flex; flex-direction: column; }
@@ -153,6 +174,10 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 .lcard-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .chip { font-size: 10px; padding: 2px 7px; border-radius: 5px; background: #2a2a30; color: #9d9daa; }
 .lcard-acts { display: flex; gap: 6px; margin-left: auto; }
+/* Plusieurs onglets "a recharger" (apres une mise a jour) : un seul bouton pour tous. */
+.bulk { display: flex; align-items: center; gap: 10px; padding: 10px 11px; border-radius: 10px; background: #2a2113; color: var(--gold); font-size: 11.5px; line-height: 1.45; }
+.bulk span { flex: 1; }
+.bulk .act { border-color: var(--gold); color: var(--gold); }
 .act {
   font-size: 10.5px; color: #c8c8d0; background: none; border: 1px solid #3a3a42;
   border-radius: 6px; padding: 3px 8px; cursor: pointer; white-space: nowrap;
@@ -169,10 +194,17 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 .as-row input { width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #3a3a3d; background: var(--surface); color: var(--text); font-size: 11px; }
 .as-row input::placeholder { color: var(--dim); }
 .field-err { font-size: 11px; color: #ff8b8b; margin: 6px 0 0; line-height: 1.45; }
+.as-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+.as-list:empty { display: none; }
+.as-chip { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; padding: 0 0 0 8px; border-radius: 6px; background: #2a2a30; color: #c8c8d0; }
+/* Croix de 24 px de cote : cible tactile et souris minimale (WCAG 2.5.8). */
+.as-chip button { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; background: none; border: 0; border-radius: 6px; color: var(--dim); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+.as-chip button:hover { color: var(--text); background: #34343c; }
+.as-hint { font-size: 10.5px; color: var(--dim); margin: 6px 0 0; line-height: 1.45; }
 .field-err[hidden] { display: none; }
 .hist-ttl-row { display: flex; align-items: center; gap: 8px; }
 .hist-ttl-row label { flex: 1; font-size: 11px; color: var(--text); }
-.hist-ttl-row input { width: 78px; flex: none; text-align: right; }
+.hist-ttl-row input { width: 96px; flex: none; text-align: right; }   /* "0 = jamais" entier */
 
 .btn-sec { width: 100%; padding: 8px; border: 1px solid #3a3a3d; border-radius: 8px; background: var(--surface); color: var(--text); font-size: 12px; cursor: pointer; }
 .btn-sec:hover { border-color: var(--purple); }
@@ -201,11 +233,13 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 /* Sans ca, les intitules de groupe (overflow: hidden) se laissaient ecraser par le flex
    des que la liste depassait la hauteur max : texte coupe en haut de chaque groupe. */
 .history > * { flex-shrink: 0; }
-.hist-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-.hist-row .fic { flex: 0 0 auto; }
-.hist-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hist-camp { font-size: 10px; color: var(--dim); flex: 0 1 auto; max-width: 96px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hist-time { color: #8d8d97; font-size: 11px; flex: 0 0 auto; }
+/* Ligne d'historique sur deux lignes : nom + heure, puis jeu et campagne en entier (plus de
+   campagne tronquee a 96 px sur chaque ligne). */
+.hist-row { display: grid; grid-template-columns: 15px minmax(0, 1fr) auto; column-gap: 8px; row-gap: 1px; align-items: center; font-size: 12px; padding: 2px 0; }
+.hist-row .fic { grid-row: 1; }
+.hist-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-time { color: #8d8d97; font-size: 11px; font-variant-numeric: tabular-nums; }
+.hist-sub { grid-column: 2 / 4; font-size: 10.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Intitule de groupe (jeu, ou paliers de points) : meme graphie que les titres de section. */
 .hist-group {
   font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: #8d8d97;

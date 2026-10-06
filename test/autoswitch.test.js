@@ -11,7 +11,7 @@ const path = require('path');
 
 const FALLBACK = 'https://www.twitch.tv/fallback';
 
-function loadAutoswitch({ channel = 'chan', url = FALLBACK, href = 'https://www.twitch.tv/chan', session = null } = {}) {
+function loadAutoswitch({ channel = 'chan', url = FALLBACK, href = 'https://www.twitch.tv/chan', session = null, list = null } = {}) {
   let assignCount = 0;
   let assignedTo = null;
   let timers = [];            // setTimeout en attente (la bascule differee de 3s) : { id, fn }
@@ -28,7 +28,7 @@ function loadAutoswitch({ channel = 'chan', url = FALLBACK, href = 'https://www.
   global.TAUtil = require('../src/shared/util.js');
   global.location = { href, assign: (u) => { assignCount += 1; assignedTo = u; } };
   global.TA = {
-    settings: { autoSwitchUrl: url },
+    settings: { autoSwitchUrl: url, autoSwitchChannels: list || [] },
     selectors: { notChannelPaths: ['', 'directory', 'drops', 'login'] },
     log: { info() {}, warn() {}, error() {} },
     dom: {
@@ -240,6 +240,46 @@ function loadAutoswitch({ channel = 'chan', url = FALLBACK, href = 'https://www.
   d.setChannel('B');
   d.fireTimers();
   assert.strictEqual(d.assignCount(), 0, 'la chaine a change pendant le delai -> pas de bascule');
+  d.mod.stop();
+}
+
+// --- Cas 16 (v1.13, liste) : hors liste -> la premiere ; sur une chaine de la liste -> la suivante ---
+{
+  const d = loadAutoswitch({ channel: 'zz', url: '', list: ['alpha', 'beta', 'gamma'] });
+  d.mod.start(); d.setOffline(true); d.tick(); d.tick(); d.fireTimers();
+  assert.strictEqual(d.assignedTo(), 'https://www.twitch.tv/alpha', 'hors liste -> premiere chaine');
+  d.mod.stop();
+}
+{
+  const d = loadAutoswitch({ channel: 'beta', url: '', list: ['alpha', 'beta', 'gamma'] });
+  d.mod.start(); d.setOffline(true); d.tick(); d.tick(); d.fireTimers();
+  assert.strictEqual(d.assignedTo(), 'https://www.twitch.tv/gamma', 'beta hors ligne -> gamma');
+  d.mod.stop();
+}
+
+// --- Cas 17 : derniere chaine de la liste hors ligne -> on reste (jamais de retour au debut) ---
+{
+  const d = loadAutoswitch({ channel: 'gamma', url: '', list: ['alpha', 'beta', 'gamma'] });
+  d.mod.start(); d.setOffline(true); d.tick(); d.tick();
+  assert.strictEqual(d.pendingTimers(), 0, 'bout de la liste : pas de bascule');
+  d.mod.stop();
+}
+
+// --- Cas 18 : la liste prime sur l'ancienne chaine unique ; doublons et invalides ecartes ---
+{
+  const d = loadAutoswitch({ channel: 'zz', url: 'https://www.twitch.tv/ancienne', list: ['https://evil.example/x', 'Alpha', 'alpha'] });
+  d.mod.start(); d.setOffline(true); d.tick(); d.tick(); d.fireTimers();
+  assert.strictEqual(d.assignedTo(), 'https://www.twitch.tv/alpha');
+  d.mod.stop();
+}
+
+// --- Cas 19 : une liste de 5 doit pouvoir etre parcourue malgre le plafond de 3 ---
+{
+  const now = Date.now();
+  const d = loadAutoswitch({ channel: 'c4', url: '', list: ['c1', 'c2', 'c3', 'c4', 'c5'],
+    session: { ta_autoswitch_log: JSON.stringify([now - 1000, now - 2000, now - 3000]) } });
+  d.mod.start(); d.setOffline(true); d.tick(); d.tick(); d.fireTimers();
+  assert.strictEqual(d.assignedTo(), 'https://www.twitch.tv/c5', 'plafond = taille de la liste (5)');
   d.mod.stop();
 }
 

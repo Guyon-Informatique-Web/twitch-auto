@@ -24,8 +24,10 @@ const vq = (v, extra) => JSON.stringify({ default: v, ...(extra || {}) });
 function openTab(ls, hidden, path) {
   const listeners = { visibilitychange: [], pagehide: [], dom: [] };
   const loc = { pathname: path || '/chaine' };
+  const signals = [];
   const doc = {
     hidden,
+    dispatchEvent: (ev) => { signals.push(ev.type); return true; },
     addEventListener: (type, fn) => listeners[type].push(fn),
     removeEventListener: (type, fn) => { listeners[type] = listeners[type].filter((f) => f !== fn); }
   };
@@ -52,7 +54,8 @@ function openTab(ls, hidden, path) {
     hide() { use(); doc.hidden = true; listeners.visibilitychange.forEach((f) => f()); },
     close() { use(); listeners.pagehide.forEach((f) => f()); },
     // Navigation interne de Twitch : l'URL change, le DOM bouge, aucun rechargement.
-    navigate(p) { use(); loc.pathname = p; listeners.dom.forEach((f) => f()); }
+    navigate(p) { use(); loc.pathname = p; listeners.dom.forEach((f) => f()); },
+    signals
   };
 }
 
@@ -190,6 +193,19 @@ function openTab(ls, hidden, path) {
   // Un simple mouvement du DOM sans changement d'URL ne touche a rien.
   a.navigate('/kamet0');
   assert.strictEqual(q(ls).default, LOW, 'pas de restauration sans changement de chaine');
+}
+
+// --- Cas 12 (v1.13) : signaux au monde de la page (player.js) pour le lecteur DEJA lance ---
+{
+  const ls = makeStorage({ ta_quality_v2: '1' });
+  const a = openTab(ls, false, '/zerator');
+  a.start();
+  assert.deepStrictEqual(a.signals, ['ta-quality-restore'], 'visible au demarrage : retour a la qualite d origine');
+  a.hide();
+  a.show();
+  a.stop();
+  assert.deepStrictEqual(a.signals, ['ta-quality-restore', 'ta-quality-low', 'ta-quality-restore', 'ta-quality-restore'],
+    'fond -> 160p a chaud, retour -> qualite d origine, arret -> qualite d origine');
 }
 
 console.log('OK quality');

@@ -14,7 +14,10 @@ const ICONS = {
   play: '<polygon points="5 3 19 12 5 21 5 3"/>',
   package: '<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
   monitor: '<rect x="2" y="4" width="20" height="15" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="2" y1="9" x2="22" y2="9"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  warn: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  rotate: '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
+  tv: '<rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/>'
 };
 
 // [cle de reglage, icone] ; libelle et infobulle viennent du dictionnaire i18n (feat.<cle>).
@@ -28,8 +31,11 @@ const FEATURES = [
   ['keepAlive', ICONS.play],
   ['autoInventory', ICONS.package],
   ['notifications', ICONS.bell],
-  ['autoSwitch', ICONS.shuffle]
+  ['autoSwitch', ICONS.shuffle],
+  ['autoReloadTabs', ICONS.rotate],
+  ['autoWatch', ICONS.tv]
 ];
+const MAX_FALLBACKS = 5;          // chaines de repli de l'auto-switch
 const RELEASES_URL = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/latest';
 const DL_PREFIX = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/download/';
 const LIVE_REFRESH_MS = 5000;   // rafraichissement de la vue "En direct" tant que le popup est ouvert
@@ -45,6 +51,12 @@ let currentLang = 'fr';  // langue active du popup (resolue depuis settings.lang
 let lastStats = {};      // derniers compteurs charges (temps par chaine pour la vue "En direct")
 let resetArmed = false;  // reset en deux temps (declare tot : load() relit cet etat)
 let importMsg = null;    // dernier message d'import { key, vars, kind } : retraduit si la langue change
+let stuckSig = '';       // signature de l'alerte "drop bloque" affichee : pas de re-rendu a l'identique
+let stuckCount = 0;      // campagnes bloquees, comptees dans la pastille d'en-tete
+let pillTabs = { farming: 0, alerts: 0 };   // derniers comptes d'onglets de la vue "En direct"
+// Jeux dont une chaine participante a ete ouverte depuis ce popup : le bouton reste "Chaine
+// ouverte" malgre les re-rendus (sinon il redevenait cliquable 30 s plus tard).
+const openedSlugs = new Set();
 const t = (key, vars) => TAi18n.t(currentLang, key, vars);
 const plural = (n) => (n > 1 ? 's' : '');   // pluriel FR et EN ({s} dans les chaines)
 const reserved = () => ((window.TA && TA.selectors && TA.selectors.notChannelPaths) || []);
@@ -114,6 +126,41 @@ function makeButton(label, className, onClick) {
   return btn;
 }
 
+// Re-rendu d'une zone : le bouton qui avait le focus clavier le retrouve (meme cle data-fk).
+function focusedKeyIn(root) {
+  const el = document.activeElement;
+  return el && el !== document.body && root.contains(el) && el.dataset ? el.dataset.fk || '' : '';
+}
+function restoreFocus(root, key) {
+  if (!key) return;
+  const again = Array.from(root.querySelectorAll('[data-fk]')).find((b) => b.dataset.fk === key);
+  if (again) again.focus();
+}
+
+// Bouton "Regarder une chaine participante". Son nom accessible cite le jeu et la campagne
+// (plusieurs boutons identiques sinon, meme pour deux campagnes d'un meme jeu) ; apres le clic,
+// il reste "Chaine ouverte", meme apres un re-rendu. aria-disabled plutot que disabled : un
+// bouton desactive perdait le focus clavier.
+function makeWatchButton(slug, game, campaign, className) {
+  const btn = makeButton(t('ui.watchParticipating'), className, () => {
+    if (openedSlugs.has(slug)) return;
+    watchCampaign(slug);
+    // Tous les boutons de ce jeu (alerte et campagnes) passent "Chaine ouverte".
+    document.querySelectorAll('button[data-watch]').forEach((b) => { if (b.dataset.watch === slug) markWatchOpened(b); });
+  });
+  btn.dataset.watch = slug;
+  btn.dataset.game = [game || slug, campaign].filter(Boolean).join(', ');
+  btn.dataset.fk = className + ':' + slug + ':' + (campaign || '');
+  btn.setAttribute('aria-label', t('ui.watchParticipatingAria', { game: btn.dataset.game }));
+  if (openedSlugs.has(slug)) markWatchOpened(btn);
+  return btn;
+}
+function markWatchOpened(btn) {
+  btn.textContent = t('ui.watchOpened');
+  btn.setAttribute('aria-disabled', 'true');
+  btn.setAttribute('aria-label', t('ui.watchOpenedAria', { game: btn.dataset.game }));
+}
+
 function fmtDuration(sec) {
   sec = Math.max(0, Math.floor(sec || 0));
   const h = Math.floor(sec / 3600);
@@ -128,6 +175,7 @@ function qualityLabel(h) { return h <= 180 ? '160p' : `${h}p`; }
 // Les cases de reglage sont construites UNE fois, puis seulement mises a jour : les recreer a
 // chaque ecriture du storage (toutes les 30 a 60 s par onglet qui farme) faisait perdre le focus.
 const featureRows = new Map();   // cle -> { row, cb, span }
+const OPT_IN = ['autoInventory', 'autoSwitch', 'autoWatch'];
 function renderFeatures(settings) {
   const wrap = document.getElementById('features');
   const disabled = settings.enabled === false;
@@ -150,12 +198,15 @@ function renderFeatures(settings) {
     setText(f.span, label);
     f.row.title = desc || '';
     if (desc) f.cb.setAttribute('aria-label', `${label} : ${desc}`);
-    f.cb.checked = settings[key] !== false;
+    // Les fonctions "opt-in" (absentes = coupees) ne doivent pas apparaitre cochees par defaut.
+    f.cb.checked = OPT_IN.includes(key) ? settings[key] === true : settings[key] !== false;
     f.cb.disabled = disabled; // vraiment desactive (clavier inclus) quand l'extension est off
   });
 }
 
-function makeHistRow(e, now) {
+// Ligne d'historique : nom + heure, puis jeu et campagne EN ENTIER sur une deuxieme ligne
+// (avant, la campagne etait tronquee a 96 px sur presque chaque ligne).
+function makeHistRow(e) {
   const row = document.createElement('div');
   row.className = 'hist-row';
   const isDrop = e.type === 'drop';
@@ -164,21 +215,34 @@ function makeHistRow(e, now) {
   label.textContent = isDrop
     ? (TAUtil.cleanDropName(e.name) || t('hist.dropDefault'))
     : t('hist.pointsTier', { n: TAUtil.formatCompact(e.amount || 0, currentLang) });
-  label.title = label.textContent; // nom complet au survol (les longs sont tronques)
+  label.title = label.textContent;
   const time = document.createElement('span');
   time.className = 'hist-time';
-  time.textContent = TAUtil.formatRelativeTime(e.ts, now, currentLang);
-  row.append(makeIcon(isDrop ? ICONS.gift : ICONS.gem, isDrop ? 'gold' : 'cyan'), label);
-  // La campagne, quand elle a pu etre lue au moment du claim, precise le drop sans le noyer.
-  if (isDrop && e.campaign) {
-    const camp = document.createElement('span');
-    camp.className = 'hist-camp';
-    camp.textContent = e.campaign;
-    camp.title = e.campaign;
-    row.appendChild(camp);
-  }
-  row.appendChild(time);
+  time.textContent = typeof e.ts === 'number' ? clock(e.ts) : '';
+  const sub = document.createElement('span');
+  sub.className = 'hist-sub';
+  sub.textContent = !isDrop ? t('hist.pointsSub')
+    : e.game ? (e.campaign ? `${e.game} · ${e.campaign}` : e.game)
+      : t('hist.noGameSub');
+  sub.title = sub.textContent;
+  row.append(makeIcon(isDrop ? ICONS.gift : ICONS.gem, isDrop ? 'gold' : 'cyan'), label, time, sub);
   return row;
+}
+
+function clock(ts) {
+  return new Date(ts).toLocaleTimeString(currentLang === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Intitule d'un jour : Aujourd'hui, Hier, puis "Lundi 5 octobre".
+function dayLabel(day, now) {
+  if (!day) return t('hist.dayUnknown');
+  if (day === TAUtil.dayKey(now)) return t('hist.today');
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (day === TAUtil.dayKey(y.getTime())) return t('hist.yesterday');
+  const [yy, mm, dd] = day.split('-').map(Number);
+  const txt = new Date(yy, mm - 1, dd).toLocaleDateString(currentLang === 'en' ? 'en-US' : 'fr-FR',
+    { weekday: 'long', day: 'numeric', month: 'long' });
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
 }
 
 function renderHistory(history, now) {
@@ -190,21 +254,80 @@ function renderHistory(history, now) {
     wrap.appendChild(makeEmpty(ICONS.clock, t('hist.empty'), t('hist.emptyHint')));
     return;
   }
-  // Plus recent en premier (on cape l'affichage a 40 lignes).
-  const rows = valid.slice(-40).reverse();
-  const groups = TAUtil.groupHistoryByGame(rows);
-  // Repli : rien d'etiquete (historique d'avant la v1.12) -> liste plate, sans intitule vide.
-  if (groups.length === 1 && !groups[0].game && !groups[0].points) {
-    rows.forEach((e) => wrap.appendChild(makeHistRow(e, now)));
-    return;
-  }
-  groups.forEach((g) => {
+  // Plus recent en premier, range par jour (on cape l'affichage a 60 lignes).
+  const rows = valid.slice(-60).reverse();
+  TAUtil.groupHistoryByDay(rows).forEach((g) => {
     const head = document.createElement('div');
     head.className = 'hist-group';
-    head.textContent = g.points ? t('ui.stat.points') : (g.game || t('ui.noGame'));
+    head.textContent = dayLabel(g.day, now);
     wrap.appendChild(head);
-    g.entries.forEach((e) => wrap.appendChild(makeHistRow(e, now)));
+    g.entries.forEach((e) => wrap.appendChild(makeHistRow(e)));
   });
+}
+
+// Intitule de l'alerte : "depuis 14:05" le jour meme, "depuis hier, 22:10", puis la date (le
+// pourcentage peut ne plus avoir bouge depuis la veille, avant meme qu'on regarde le jeu).
+function stuckTitle(x, now) {
+  const name = x.name || x.campaign || x.game || t('inprog.defaultName');
+  const time = clock(x.since);
+  const day = TAUtil.dayKey(x.since);
+  if (day === TAUtil.dayKey(now)) return t('ui.stuckTitle', { name, time });
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (day === TAUtil.dayKey(y.getTime())) return t('ui.stuckTitleYesterday', { name, time });
+  const date = new Date(x.since).toLocaleDateString(currentLang === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'long' });
+  return t('ui.stuckTitleDay', { name, day: date, time });
+}
+
+// Alerte "drop bloque" : une par campagne (ses drops avancent ensemble, une seule cause).
+// Affichee seulement si le releve est frais : sans inventaire ouvert, rien n'est juge. Texte
+// stable ("depuis 14:05", pas un compte de minutes qui change sans cesse) et zone reconstruite
+// seulement quand il change : le bouton garde son focus, et la zone d'annonce (role=status,
+// #stuck-live) ne parle qu'a l'apparition d'une alerte, pas a chaque releve.
+function renderStuck(stats, now) {
+  const box = document.getElementById('stuck');
+  const fresh = stats.inProgressTs && now - stats.inProgressTs < STALE_MS;
+  const seen = new Set();
+  const items = [];
+  (fresh && Array.isArray(stats.stuck) ? stats.stuck : []).forEach((x) => {
+    if (!x || typeof x !== 'object' || !Number.isFinite(x.since)) return;
+    const k = (x.game || '') + '|' + (x.campaign || '');
+    if (!seen.has(k)) { seen.add(k); items.push(x); }
+  });
+  stuckCount = items.length;
+  renderPill();
+  const shown = items.slice(0, 2);
+  const titles = shown.map((x) => stuckTitle(x, now));
+  // Signature sur le texte affiche : "aujourd'hui" devient "hier" a minuit, la zone suit.
+  const sig = currentLang + JSON.stringify(shown.map((x, i) => [titles[i], x.game, x.campaign, x.gameSlug, openedSlugs.has(x.gameSlug)]));
+  if (sig === stuckSig) return;
+  stuckSig = sig;
+  const focusKey = focusedKeyIn(box);
+  box.replaceChildren();
+  box.hidden = !shown.length;
+  shown.forEach((x, i) => {
+    const el = document.createElement('div');
+    el.className = 'alertbox';
+    const txt = document.createElement('div');
+    const b = document.createElement('b');
+    b.textContent = titles[i];
+    txt.append(b, document.createTextNode(' ' + t('ui.stuckHint')));
+    if (x.gameSlug) txt.appendChild(makeWatchButton(x.gameSlug, x.game, x.campaign, 'alert-act'));
+    el.append(makeIcon(ICONS.warn, null, 15), txt);
+    box.appendChild(el);
+  });
+  setText(document.getElementById('stuck-live'), titles.join(' '));
+  restoreFocus(box, focusKey);
+}
+
+// Ouvre une chaine en direct qui participe a la campagne, au premier plan : Chrome ne charge pas
+// la video d'un onglet de fond jamais affiche (mesure du 06/10/2026). Le service worker ouvre
+// l'annuaire du jeu filtre "drops", le script de contenu y choisit la premiere chaine.
+function watchCampaign(slug) {
+  openedSlugs.add(slug);
+  try {
+    const p = chrome.runtime.sendMessage({ type: 'watchCampaign', slug });
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (e) { /* SW */ }
 }
 
 // Carte "prochain drop" : celui dont l'ETA est le plus court (a defaut, le plus avance).
@@ -313,10 +436,11 @@ function makeCampDrop(d) {
 
 // Drops en cours ranges par jeu puis par campagne. Repli en liste plate "Ensuite" quand
 // aucun jeu n'a pu etre lu : le regroupement peut echouer, la liste des drops jamais.
-function renderDropGroups(sorted) {
+function renderDropGroups(sorted, now) {
   const sec = document.getElementById('next-section');
   const wrap = document.getElementById('next');
   const title = document.getElementById('next-title');
+  const focusKey = focusedKeyIn(wrap);
   wrap.replaceChildren();
   const groups = TAUtil.groupDropsByGame(sorted);
   const flat = !groups.length || (groups.length === 1 && !groups[0].game);
@@ -366,9 +490,26 @@ function renderDropGroups(sorted) {
       top.append(nm, count);
       box.append(game, top);
       c.drops.forEach((d) => box.appendChild(makeCampDrop(d)));
+      // Fin de campagne (lue sur l'inventaire) contre le temps de visionnage encore necessaire.
+      const ends = (c.drops.find((d) => d.campEnds) || {}).campEnds;
+      if (ends && ends > now) {
+        const left = TAUtil.campaignRemainingMin(c.drops);
+        const tight = left != null && now + left * 60000 > ends;
+        const key = left == null ? 'ui.campEnds' : tight ? 'ui.campEndsTight' : 'ui.campEndsLeft';
+        const line = document.createElement('div');
+        line.className = 'camp-end' + (tight ? ' warn' : '');
+        line.append(makeIcon(ICONS.clock, null, 12), document.createTextNode(t(key, {
+          when: TAUtil.formatRelativeFuture(ends, now, currentLang),
+          dur: left != null ? fmtDuration(left * 60) : ''
+        })));
+        box.appendChild(line);
+      }
+      const slug = (c.drops.find((d) => d.gameSlug) || {}).gameSlug;
+      if (slug) box.appendChild(makeWatchButton(slug, g.game, c.campaign, 'camp-act'));
       wrap.appendChild(box);
     });
   });
+  restoreFocus(wrap, focusKey);
 }
 
 function renderChannels(byChannel) {
@@ -520,6 +661,20 @@ function renderLive(list) {
     ));
     return;
   }
+  // Apres une mise a jour, tous les onglets ouverts passent "a recharger" : un seul geste.
+  const orphans = list.filter((x) => x.state === 'unreachable' && x.tab.id != null);
+  if (orphans.length >= 2) {
+    const bulk = document.createElement('div');
+    bulk.className = 'bulk';
+    const span = document.createElement('span');
+    span.textContent = t('live.bulkTxt', { n: orphans.length });
+    const btn = makeButton(t('live.bulkBtn'), 'act', () => {
+      Promise.all(orphans.map((x) => chrome.tabs.reload(x.tab.id).catch(() => {}))).then(() => loadLive(true));
+    });
+    btn.dataset.key = 'bulk';
+    bulk.append(span, btn);
+    wrap.appendChild(bulk);
+  }
   list.forEach((entry) => wrap.appendChild(makeLiveCard(entry)));
   if (focusedKey) {
     const again = Array.from(wrap.querySelectorAll('button[data-key]')).find((b) => b.dataset.key === focusedKey);
@@ -527,8 +682,13 @@ function renderLive(list) {
   }
 }
 
-// Pastille d'en-tete : les alertes priment sur le compte d'onglets qui farment.
-function renderPill(farming, alerts) {
+// Pastille d'en-tete : les alertes (onglet en defaut, campagne bloquee) priment sur le compte
+// d'onglets qui farment. Sans argument : garde les derniers comptes d'onglets (appel de
+// renderStuck, qui ne connait que les campagnes bloquees).
+function renderPill(tabsFarming, tabAlerts) {
+  if (tabsFarming != null) pillTabs = { farming: tabsFarming, alerts: tabAlerts || 0 };
+  const farming = pillTabs.farming;
+  const alerts = pillTabs.alerts + stuckCount;
   const pill = document.getElementById('pill');
   if (alerts > 0) {
     pill.hidden = false;
@@ -606,7 +766,8 @@ async function load() {
   setText(document.getElementById('watch-value'), fmtDuration(stats.watchSeconds));
 
   renderFeatures(settings);
-  renderDropGroups(renderHero(stats.inProgress || [], stats, now));
+  renderStuck(stats, now);
+  renderDropGroups(renderHero(stats.inProgress || [], stats, now), now);
   renderChannels(stats.byChannel || {});
   // Vidage auto de l'historique : on filtre a l'affichage (meme sans nouveau claim) et, si des
   // entrees ont expire, on demande au background de persister la purge (ecriture serialisee via
@@ -620,20 +781,18 @@ async function load() {
   }
   renderHistory(prunedHistory, now);
 
-  // Ligne de la chaine de repli de l'auto-switch (visible seulement si le toggle est actif).
-  // Une valeur enregistree par une ancienne version (page d'annuaire, /videos...) n'est plus
-  // une cible valide : on le dit ici, sinon l'utilisateur croit le repli en place.
+  // Chaines de repli de l'auto-switch (bloc visible seulement si le toggle est actif). Une
+  // ancienne chaine unique invalide (page d'annuaire, /videos...) est signalee : sinon
+  // l'utilisateur croit le repli en place.
   document.getElementById('autoswitch-row').hidden = settings.autoSwitch !== true;
-  const asInput = document.getElementById('autoswitch-url');
-  if (document.activeElement !== asInput && !asPending) {
-    const stored = settings.autoSwitchUrl || '';
-    asInput.value = stored;
-    if (stored && !TAUtil.channelSlug(stored, reserved())) {
-      asErr.textContent = t('ui.autoswitchErr', { v: stored.slice(0, 60) });
-      asErr.hidden = false;
-    } else {
-      asErr.hidden = true;
-    }
+  fallbacks = fallbackList(settings);
+  renderFallbacks();
+  if (!asPending) {
+    const legacy = settings.autoSwitchUrl || '';
+    const legacyBad = !fallbacks.length && legacy && !TAUtil.channelSlug(legacy, reserved());
+    if (legacyBad) { setText(asErr, t('ui.autoswitchErr', { v: legacy.slice(0, 60) })); asErr.hidden = false; }
+    else if (asNotice) { setText(asErr, t(asNotice.key, asNotice.vars)); asErr.hidden = false; }
+    else asErr.hidden = true;
   }
 
   const histInput = document.getElementById('history-ttl');
@@ -676,27 +835,79 @@ document.getElementById('update-dl').addEventListener('click', () => {
   }
 });
 
-// Chaine de repli : on accepte un nom, un lien avec ou sans https / www, et on enregistre
-// toujours la forme canonique https://www.twitch.tv/<slug>. Saisie invalide = message, rien
-// d'enregistre (une URL bancale faisait boucler ou viser une page morte).
+// Chaines de repli : une liste ordonnee de 5 chaines au plus. La saisie accepte un nom ou un
+// lien (avec ou sans https / www), et plusieurs a la fois separes par des virgules ou des
+// espaces ; on enregistre des slugs. Saisie invalide = message, rien d'enregistre.
 const asErr = document.getElementById('autoswitch-err');
-// Saisie refusee en attente de correction : load() ne l'ecrase pas par l'ancienne valeur
-// (sinon le message citerait un texte qui n'est plus visible).
+const asInput = document.getElementById('autoswitch-url');
+// Saisie refusee en attente de correction : load() ne masque pas son message.
 let asPending = false;
-document.getElementById('autoswitch-url').addEventListener('change', (e) => {
-  const raw = e.target.value.trim();
-  const slug = TAUtil.channelSlug(raw, reserved());
-  if (raw && !slug) {
-    asErr.textContent = t('ui.autoswitchErr', { v: raw.slice(0, 60) });
+// Information sur la derniere saisie (liste pleine, chaine deja presente) : { key, vars }. Elle
+// survit au re-rendu que declenche l'enregistrement (sinon le message clignotait et disparaissait).
+let asNotice = null;
+let fallbacks = [];
+
+function fallbackList(settings) {
+  const raw = Array.isArray(settings.autoSwitchChannels) && settings.autoSwitchChannels.length
+    ? settings.autoSwitchChannels : [settings.autoSwitchUrl || ''];
+  const out = [];
+  raw.forEach((x) => { const slug = TAUtil.channelSlug(x, reserved()); if (slug && !out.includes(slug)) out.push(slug); });
+  return out.slice(0, MAX_FALLBACKS);
+}
+
+function saveFallbacks(list) {
+  // autoSwitchUrl est vide des qu'une liste existe : une seule source de verite.
+  patchSettings({ autoSwitchChannels: list, autoSwitchUrl: '' });
+}
+
+function renderFallbacks() {
+  const wrap = document.getElementById('autoswitch-list');
+  const focusKey = focusedKeyIn(wrap);
+  wrap.replaceChildren();
+  fallbacks.forEach((ch, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'as-chip';
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.textContent = '×';
+    rm.dataset.fk = 'as:' + ch;
+    rm.setAttribute('aria-label', t('ui.autoswitchRemove', { ch }));
+    rm.addEventListener('click', () => {
+      asNotice = null;
+      asInput.focus();   // la puce disparait : le focus clavier ne doit pas tomber dans le vide
+      saveFallbacks(fallbacks.filter((x) => x !== ch));
+    });
+    chip.append(document.createTextNode(`${i + 1}. ${ch}`), rm);
+    wrap.appendChild(chip);
+  });
+  restoreFocus(wrap, focusKey);
+}
+
+asInput.addEventListener('change', (e) => {
+  const parts = e.target.value.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+  asNotice = null;
+  if (!parts.length) { asPending = false; asErr.hidden = true; return; }
+  const bad = parts.filter((x) => !TAUtil.channelSlug(x, reserved()));
+  if (bad.length) {
+    asErr.textContent = t('ui.autoswitchErr', { v: bad[0].slice(0, 60) });
     asErr.hidden = false;
     asPending = true;
     return;
   }
+  const next = fallbacks.slice();
+  const dup = [];
+  parts.forEach((x) => {
+    const slug = TAUtil.channelSlug(x, reserved());
+    if (next.includes(slug)) { if (!dup.includes(slug)) dup.push(slug); } else next.push(slug);
+  });
   asPending = false;
-  asErr.hidden = true;
-  const url = slug ? 'https://www.twitch.tv/' + slug : '';
-  e.target.value = url;
-  update('autoSwitchUrl', url);
+  // Liste pleine, ou chaine deja presente : on le dit (avant, la saisie disparaissait sans rien).
+  if (next.length > MAX_FALLBACKS) asNotice = { key: 'ui.autoswitchFull' };
+  else if (dup.length) asNotice = { key: 'ui.autoswitchDup', vars: { ch: dup.join(', ') } };
+  if (asNotice) { asErr.textContent = t(asNotice.key, asNotice.vars); asErr.hidden = false; }
+  else asErr.hidden = true;
+  e.target.value = '';
+  if (next.length !== fallbacks.length) saveFallbacks(next.slice(0, MAX_FALLBACKS));
 });
 
 // Vidage auto de l'historique : champ vide ou <= 0 -> 0 (desactive, n'efface rien).
@@ -726,7 +937,7 @@ document.getElementById('diag-test-btn').addEventListener('click', async () => {
     out.textContent = t('diag.result', {
       points: yn(r.points), balance: yn(r.pointsBalance),
       dropSel: yn(r.dropSelector), dropText: yn(r.dropText),
-      overlay: yn(r.playerOverlay), bars: r.progressBars
+      overlay: yn(r.playerOverlay), bars: r.progressBars, ends: r.campaignEnds || '-'
     });
   } catch (e) {
     out.textContent = t('diag.noResponse');

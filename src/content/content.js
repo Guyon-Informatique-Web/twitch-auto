@@ -11,7 +11,9 @@ window.TA = window.TA || {};
     const master = settings.enabled !== false;   // meme lecture que le popup : absent = actif
     for (const id in registry) {
       const mod = registry[id];
-      const want = master && settings[mod.settingKey] !== false;
+      // ignoreMaster : module qui n'agit que sur une demande explicite (bouton du popup) ; il
+      // tourne meme extension coupee, sinon le bouton ouvrait l'annuaire et s'arretait la.
+      const want = (master || mod.ignoreMaster === true) && settings[mod.settingKey] !== false;
       const isOn = active.has(id);
       try {
         if (want && !isOn) { mod.start(); active.add(id); TA.log.info('core', 'start', id); }
@@ -42,7 +44,23 @@ window.TA = window.TA || {};
   function diagnose() {
     const S = TA.selectors;
     const has = (cands) => !!TA.dom.findFirst(cands);
+    // Sur l'inventaire : combien de campagnes ont une date de fin lisible (fonction "fin de
+    // campagne", verifiable seulement connecte).
+    let camps = 0;
+    let ends = 0;
+    if (TAUtil.isInventoryPath(location.pathname)) {
+      const seen = new Set();
+      document.querySelectorAll(S.dropProgress.join(',')).forEach((bar) => {
+        const m = TA.dom.findCampaign(bar);
+        const k = m.game + '|' + m.campaign;
+        if (seen.has(k)) return;
+        seen.add(k);
+        camps += 1;
+        if (m.endsAt) ends += 1;
+      });
+    }
     return {
+      campaignEnds: camps ? `${ends}/${camps}` : '-',
       url: location.href,
       points: has(S.pointsClaim),
       // Meme lecture que le calcul du gain : le solde de Bits voisin ne compte pas comme un solde

@@ -51,6 +51,12 @@
       </div>
     </section>
 
+    <!-- Alerte "drop bloque" (une par campagne), remplie en JS depuis stats.stuck. La zone
+         d'annonce, toujours presente (une zone masquee n'est pas lue), ne change qu'a
+         l'apparition ou a la fin d'un blocage. -->
+    <p id="stuck-live" class="sr-only" role="status"></p>
+    <section id="stuck" class="stuck" hidden></section>
+
     <section id="hero" class="hero-wrap"></section>
 
     <!-- Titre pose en JS : "Campagnes" quand le regroupement par jeu a fonctionne,
@@ -122,9 +128,12 @@
       <div id="features" class="features"></div>
     </section>
 
+    <!-- Chaines de repli de l'auto-switch : liste ordonnee (5 au plus), une saisie pour ajouter. -->
     <div id="autoswitch-row" class="as-row" hidden>
-      <input id="autoswitch-url" type="text" data-i18n-ph="ui.autoswitchPh" placeholder="Chaîne de repli (ex. : twitch.tv/maChaine)" spellcheck="false" autocomplete="off">
+      <div id="autoswitch-list" class="as-list"></div>
+      <input id="autoswitch-url" type="text" data-i18n-ph="ui.autoswitchPh" placeholder="Ajouter une chaîne de repli (ex. : zerator)" spellcheck="false" autocomplete="off">
       <p id="autoswitch-err" class="field-err" role="alert" hidden></p>
+      <p class="as-hint" data-i18n="ui.autoswitchHint"></p>
     </div>
 
     <div class="as-row hist-ttl-row">

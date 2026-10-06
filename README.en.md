@@ -14,11 +14,14 @@ Chrome extension (Manifest V3) that automates Twitch: auto-claim of **channel po
 - **Drops**: auto-claim via the inventory AND via the banner that appears on a stream.
 - **Multi-tab farming**: drops progress on ALL open tabs in parallel (not only the active one), and background videos no longer pause.
 - **Auto reload** of the player on error (with an anti-loop guard).
-- **Min quality** (160p) for streams that start in the background (your foreground quality is never touched), **mute** of background tabs (a tab you muted yourself stays muted), **anti-AFK** ("still watching" / mature content gates), **anti-pause**.
+- **Min quality** (160p) on background tabs, even for a stream already playing (live switch of the player), and your quality comes back when you return to the tab, including a tab reloaded or opened in the background meanwhile (a video you pause is never restarted); **mute** of background tabs (a tab you muted yourself stays muted), **anti-AFK** ("still watching" / mature content gates), **anti-pause**.
+- **Stuck drop alert**: if a drop has not moved for 30 min while you watch a channel of ITS game (channel not part of the campaign, raid), an alert in Stats (counted in the header pill) and a notification. A campaign you set aside, whose game you do not watch, is never reported.
+- **Participating channels**: a button per campaign opens a live channel that has drops enabled for that game (even with the extension switched off); as an option ("Auto drops channel"), the extension opens one by itself when a drop is stuck (in the background, with a notification: Chrome only starts the video once the tab has been shown).
+- **Campaign end**: when the inventory gives the end date, each campaign shows the time left, compared with the watch time still needed ("too tight" in orange).
 - **Tracking**: watch time, drops in progress with % and **estimated time remaining (ETA)**, per-channel stats, history. The Stats tab highlights the **next drop** (the one landing first).
-- **Sorted by game and campaign**: drops in progress and history are grouped by game, then by campaign. Entries that could not be labelled (before v1.12, or claimed from an on-stream banner) stay visible under "No game".
-- **"Live" tab**: one card per open Twitch tab, with its real state (live / paused / frozen / offline / needs reload / inventory), the quality actually decoded (160p, 720p...), mute and time spent on the channel. **Go to tab**, **Reload** (when the player is frozen, or when the tab "needs reload" because the extension was reloaded after it opened) and **Close** buttons. A pill in the header shows how many tabs are farming, or how many alerts.
-- **Notifications**, **backup** (export/import of settings, counters and history; the file is filtered on import), **auto-update**, **auto inventory**, **auto-switch** to a fallback channel (channel name or twitch.tv link, at most 3 switches per 10 min).
+- **Sorted by game and campaign**: drops in progress are grouped by game, then by campaign. The **history** is sorted **by day** (Today, Yesterday...) with the exact time, and each drop's game and campaign in full on a second line.
+- **"Live" tab**: one card per open Twitch tab, with its real state (live / paused / frozen / offline / needs reload / inventory), the quality actually decoded (160p, 720p...), mute and time spent on the channel. **Go to tab**, **Reload** (when the player is frozen, or when the tab "needs reload" because the extension was reloaded after it opened) and **Close** buttons; **Reload all** when several tabs need a reload. After an update, background Twitch tabs are reloaded automatically ("Reload after update" option; never the tab you are watching, nor a background tab you are listening to, nor a page where you might be typing something: settings, subscriptions, payment, login, messages). A pill in the header shows how many tabs are farming, or how many alerts (tabs in trouble and stuck drops).
+- **Notifications**, **backup** (export/import of settings, counters and history; the file is filtered on import), **auto-update**, **auto inventory**, **auto-switch** to an ordered list of fallback channels (5 at most: it moves on to the next one if it is offline, never back to the start of the list).
 - **Bilingual interface (FR / EN)**: language picker with flags in the settings tab; the popup and desktop notifications follow your choice (auto-detected from your browser by default).
 
 ## Installation
@@ -47,7 +50,8 @@ Thanks to the ID key pinned in the manifest, storage (counters, history) is kept
 - **All Twitch selectors** are centralized in `src/content/selectors.js`: this is the only file to fix when Twitch changes its interface.
 - **UI strings** are centralized in `src/shared/i18n.js` (FR / EN dictionary): the only file to edit to adjust or add a translation.
 - **Diagnostics**: the "Test selectors" button (Settings tab), run on a Twitch page, shows what the extension finds.
-- **Tests** (9 Node suites, no dependency): `for f in test/*.test.js; do node "$f"; done`.
+- **Tests** (10 Node suites, no dependency): `for f in test/*.test.js; do node "$f"; done`.
+- **Checks in real Chrome** (no dependency, Google Chrome stable required): `node tools/verifier.js` renders every popup tab in FR and EN and looks for overflow and errors; `--live` plays a real twitch.tv stream (playback, muting in the background, offline channel); `--popup-reel` opens the real toolbar popup. Screenshots and report in `tools/verif/<date>/` (not versioned).
 
 ## License
 

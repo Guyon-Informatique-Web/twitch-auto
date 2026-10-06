@@ -33,6 +33,17 @@
       'ui.noGame': 'Sans jeu',
       'ui.dropsCount': '{n} drop{s} en cours',
       'ui.stale': 'Relevé {ago} : ouvre l’inventaire pour l’actualiser.',
+      'ui.stuckTitle': '« {name} » n’avance plus depuis {time}.',
+      'ui.stuckTitleYesterday': '« {name} » n’avance plus depuis hier, {time}.',
+      'ui.stuckTitleDay': '« {name} » n’avance plus depuis le {day}, {time}.',
+      'ui.stuckHint': 'Une chaîne de ce jeu est pourtant regardée : elle ne participe peut-être pas à la campagne.',
+      'ui.watchParticipating': 'Regarder une chaîne participante',
+      'ui.watchParticipatingAria': 'Regarder une chaîne participante : {game}',
+      'ui.watchOpened': 'Chaîne ouverte',
+      'ui.watchOpenedAria': 'Chaîne ouverte : {game}',
+      'ui.campEnds': 'Se termine {when}',
+      'ui.campEndsLeft': 'Se termine {when} · encore ~{dur} à regarder',
+      'ui.campEndsTight': 'Se termine {when} · encore ~{dur} à regarder : trop juste',
       'ui.noDropTitle': 'Aucun drop en cours',
       'ui.noDropHint': 'L’extension lit ta progression sur la page inventaire. Ouvre-la une fois : elle s’en occupe ensuite toute seule.',
       'ui.noDropCta': 'Ouvrir mon inventaire',
@@ -68,15 +79,26 @@
       'live.watched': '{dur} sur cette chaîne',
       'live.chip.muted': 'muet',
       'live.chip.off': 'extension coupée',
+      'live.bulkTxt': '{n} onglets ne sont plus suivis depuis la mise à jour.',
+      'live.bulkBtn': 'Tout recharger',
 
       // Onglet Historique
       'hist.empty': 'Rien de réclamé pour l’instant',
       'hist.emptyHint': 'Les points et les drops récupérés s’empileront ici, du plus récent au plus ancien. Laisse un stream tourner : le premier coffre tombe en général sous 15 min.',
       'hist.dropDefault': 'Drop réclamé',
       'hist.pointsTier': 'Palier {n} points',
+      'hist.today': 'Aujourd’hui',
+      'hist.yesterday': 'Hier',
+      'hist.dayUnknown': 'Date inconnue',
+      'hist.pointsSub': 'Points de chaîne',
+      'hist.noGameSub': 'Jeu inconnu',
 
       // Onglet Reglages
-      'ui.autoswitchPh': 'Chaîne de repli (ex. : twitch.tv/maChaine)',
+      'ui.autoswitchPh': 'Ajouter une chaîne de repli (ex. : zerator)',
+      'ui.autoswitchHint': 'Dans cet ordre : l’auto-switch part sur la suivante si elle est hors ligne.',
+      'ui.autoswitchRemove': 'Retirer {ch}',
+      'ui.autoswitchFull': 'Cinq chaînes au plus.',
+      'ui.autoswitchDup': 'Déjà dans la liste : {ch}.',
       'ui.autoswitchErr': 'Aucune chaîne Twitch reconnue dans « {v} ». Indique un lien twitch.tv ou un nom de chaîne.',
       'ui.historyTtl': 'Vider l’historique après (min)',
       'ui.historyTtlPh': '0 = jamais',
@@ -109,7 +131,8 @@
       'diag.result':
         'Points : {points}  |  Solde : {balance}\n' +
         'Drop sélecteur : {dropSel}  |  Drop texte : {dropText}\n' +
-        'Overlay lecteur : {overlay}  |  Barres de progression : {bars}',
+        'Overlay lecteur : {overlay}  |  Barres de progression : {bars}\n' +
+        'Campagnes avec date de fin : {ends}',
       'diag.lastError': 'Dernière erreur ({module}, {ago}) : {message}',
 
       // Banniere de mise a jour
@@ -124,7 +147,7 @@
       'feat.reload': 'Reload auto',
       'feat.reload.desc': 'Recharge le lecteur quand il affiche une erreur ou reste figé en arrière-plan.',
       'feat.lowQuality': 'Qualité mini',
-      'feat.lowQuality.desc': 'Lance en 160p les streams qui démarrent en arrière-plan, sans toucher à ta qualité au premier plan.',
+      'feat.lowQuality.desc': 'Passe en 160p les onglets en arrière-plan, même un stream déjà lancé ; ta qualité revient quand tu y retournes.',
       'feat.antiAfk': 'Anti-AFK',
       'feat.antiAfk.desc': 'Clique les fenêtres « Toujours là ? » et le contenu sensible.',
       'feat.muteBackground': 'Mute fond',
@@ -136,7 +159,11 @@
       'feat.notifications': 'Notifications',
       'feat.notifications.desc': 'Notification de bureau sur drop ou palier de points.',
       'feat.autoSwitch': 'Auto-switch',
-      'feat.autoSwitch.desc': 'Bascule vers une chaîne de repli si le stream passe hors ligne (règle la chaîne ci-dessous).',
+      'feat.autoSwitch.desc': 'Bascule vers une chaîne de repli si le stream passe hors ligne (règle la liste ci-dessous).',
+      'feat.autoReloadTabs': 'Recharge après MAJ',
+      'feat.autoReloadTabs.desc': 'Après une mise à jour de l’extension, recharge les onglets Twitch en arrière-plan (jamais celui que tu regardes).',
+      'feat.autoWatch': 'Chaîne à drops auto',
+      'feat.autoWatch.desc': 'Quand un drop n’avance plus, ouvre en arrière-plan une chaîne en direct qui participe à sa campagne (une fois par heure et par jeu).',
 
       // Notifications de bureau (service worker)
       'notif.update.title': 'Mise à jour disponible',
@@ -145,7 +172,11 @@
       'notif.points.body': '{n} points cumulés via Twitch Auto',
       'notif.drop.title': 'Drop réclamé',
       'notif.drop.bodyNamed': 'Drop : {name}',
-      'notif.drop.bodyAnon': 'Un drop a été réclamé'
+      'notif.drop.bodyAnon': 'Un drop a été réclamé',
+      'notif.watch.title': 'Chaîne participante ouverte',
+      'notif.watch.body': 'Une chaîne qui a les drops de {game} est ouverte en arrière-plan. Clique ici pour l’afficher : Chrome ne lance la vidéo qu’une fois l’onglet affiché.',
+      'notif.stuck.title': 'Drop bloqué',
+      'notif.stuck.body': '« {name} » n’avance plus malgré {n} min de visionnage de son jeu : la chaîne regardée ne participe peut-être pas à la campagne.'
     },
 
     en: {
@@ -176,6 +207,17 @@
       'ui.noGame': 'No game',
       'ui.dropsCount': '{n} drop{s} in progress',
       'ui.stale': 'Last read {ago}: open the inventory to refresh it.',
+      'ui.stuckTitle': '"{name}" has not moved since {time}.',
+      'ui.stuckTitleYesterday': '"{name}" has not moved since yesterday, {time}.',
+      'ui.stuckTitleDay': '"{name}" has not moved since {day}, {time}.',
+      'ui.stuckHint': 'You are watching a channel of this game though: it may not take part in the campaign.',
+      'ui.watchParticipating': 'Watch a participating channel',
+      'ui.watchParticipatingAria': 'Watch a participating channel: {game}',
+      'ui.watchOpened': 'Channel opened',
+      'ui.watchOpenedAria': 'Channel opened: {game}',
+      'ui.campEnds': 'Ends {when}',
+      'ui.campEndsLeft': 'Ends {when} · about {dur} of watching left',
+      'ui.campEndsTight': 'Ends {when} · about {dur} of watching left: too tight',
       'ui.noDropTitle': 'No drop in progress',
       'ui.noDropHint': 'The extension reads your progress from the inventory page. Open it once: it takes over from there.',
       'ui.noDropCta': 'Open my inventory',
@@ -211,15 +253,26 @@
       'live.watched': '{dur} on this channel',
       'live.chip.muted': 'muted',
       'live.chip.off': 'extension off',
+      'live.bulkTxt': '{n} tabs are no longer tracked since the update.',
+      'live.bulkBtn': 'Reload all',
 
       // History tab
       'hist.empty': 'Nothing claimed yet',
       'hist.emptyHint': 'Claimed points and drops will pile up here, newest first. Leave a stream running: the first chest usually drops within 15 min.',
       'hist.dropDefault': 'Drop claimed',
       'hist.pointsTier': '{n} points milestone',
+      'hist.today': 'Today',
+      'hist.yesterday': 'Yesterday',
+      'hist.dayUnknown': 'Unknown date',
+      'hist.pointsSub': 'Channel points',
+      'hist.noGameSub': 'Unknown game',
 
       // Settings tab
-      'ui.autoswitchPh': 'Fallback channel (e.g. twitch.tv/myChannel)',
+      'ui.autoswitchPh': 'Add a fallback channel (e.g. zerator)',
+      'ui.autoswitchHint': 'In this order: auto-switch moves on to the next one if it is offline.',
+      'ui.autoswitchRemove': 'Remove {ch}',
+      'ui.autoswitchFull': 'Five channels at most.',
+      'ui.autoswitchDup': 'Already in the list: {ch}.',
       'ui.autoswitchErr': 'No Twitch channel found in "{v}". Enter a twitch.tv link or a channel name.',
       'ui.historyTtl': 'Clear history after (min)',
       'ui.historyTtlPh': '0 = never',
@@ -252,7 +305,8 @@
       'diag.result':
         'Points: {points}  |  Balance: {balance}\n' +
         'Drop selector: {dropSel}  |  Drop text: {dropText}\n' +
-        'Player overlay: {overlay}  |  Progress bars: {bars}',
+        'Player overlay: {overlay}  |  Progress bars: {bars}\n' +
+        'Campaigns with an end date: {ends}',
       'diag.lastError': 'Last error ({module}, {ago}): {message}',
 
       // Update banner
@@ -267,7 +321,7 @@
       'feat.reload': 'Auto reload',
       'feat.reload.desc': 'Reloads the player when it shows an error or stays frozen in the background.',
       'feat.lowQuality': 'Min quality',
-      'feat.lowQuality.desc': 'Starts background streams at 160p, without touching your foreground quality.',
+      'feat.lowQuality.desc': 'Drops background tabs to 160p, even a stream already playing; your quality comes back when you return.',
       'feat.antiAfk': 'Anti-AFK',
       'feat.antiAfk.desc': 'Clicks "Still watching?" prompts and mature content gates.',
       'feat.muteBackground': 'Mute background',
@@ -279,7 +333,11 @@
       'feat.notifications': 'Notifications',
       'feat.notifications.desc': 'Desktop notification on drop / points milestone.',
       'feat.autoSwitch': 'Auto-switch',
-      'feat.autoSwitch.desc': 'Switches to a fallback channel if the stream goes offline (set the channel below).',
+      'feat.autoSwitch.desc': 'Switches to a fallback channel if the stream goes offline (set the list below).',
+      'feat.autoReloadTabs': 'Reload after update',
+      'feat.autoReloadTabs.desc': 'After an extension update, reloads background Twitch tabs (never the one you are watching).',
+      'feat.autoWatch': 'Auto drops channel',
+      'feat.autoWatch.desc': 'When a drop stops progressing, opens a live channel taking part in its campaign in the background (once per hour per game).',
 
       // Desktop notifications (service worker)
       'notif.update.title': 'Update available',
@@ -288,7 +346,11 @@
       'notif.points.body': '{n} points collected via Twitch Auto',
       'notif.drop.title': 'Drop claimed',
       'notif.drop.bodyNamed': 'Drop: {name}',
-      'notif.drop.bodyAnon': 'A drop was claimed'
+      'notif.drop.bodyAnon': 'A drop was claimed',
+      'notif.watch.title': 'Participating channel opened',
+      'notif.watch.body': 'A channel with {game} drops is open in the background. Click here to show it: Chrome only starts the video once the tab has been shown.',
+      'notif.stuck.title': 'Drop stuck',
+      'notif.stuck.body': '"{name}" has not moved despite {n} min of watching its game: the channel you watch may not take part in the campaign.'
     }
   };
 

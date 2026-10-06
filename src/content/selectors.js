@@ -82,6 +82,18 @@ TA.selectors = {
   // Barre de progression d'un drop en cours (page inventaire).
   dropProgress: ['[role="progressbar"]'],
 
+  // Cartes de chaine de l'annuaire (verifie le 06/10/2026 sur /directory/all et sur
+  // /directory/category/<jeu>?filter=drops) : le 1er segment du href est le nom de la chaine.
+  directoryChannelLink: [
+    'a[data-a-target="preview-card-channel-link"]',
+    'a[data-a-target="preview-card-image-link"]'
+  ],
+
+  // Texte qui porte la date de fin d'une campagne dans son bloc de l'inventaire (FR + EN).
+  // La date elle-meme est lue par TAUtil.parseEndDate ; sans date lisible, rien n'est affiche.
+  // (Pas d'indice "expire" : il designe aussi l'expiration d'une recompense deja obtenue.)
+  campaignEndHints: [/date de fin/i, /se termine/i, /\btermin[eé]e? le\b/i, /\bends?\b/i, /end date/i],
+
   // Regroupement par jeu / campagne. Signal STRUCTUREL et non cosmetique : le nom du jeu est
   // toujours un lien vers l'annuaire, aussi bien dans l'en-tete d'une campagne (inventaire)
   // que sous le titre d'un stream. '/directory/category/' est la forme actuelle,

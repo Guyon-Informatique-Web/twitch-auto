@@ -10,7 +10,10 @@
 //    remettre meme quand l'onglet qui avait force le 160p a ete ferme ou recharge entre-temps ;
 //  - onglet visible (retour, chargement ou changement de chaine au premier plan) et onglet qui
 //    se ferme : on remet la qualite de l'utilisateur. Un onglet encore cache la repassera en
-//    160p a son prochain demarrage de lecteur.
+//    160p a son prochain demarrage de lecteur ;
+//  - et pour le lecteur DEJA lance, qui ignore la cle : on demande a player.js (monde de la page,
+//    API du lecteur mesuree le 06/10/2026) de passer en 160p a chaud, puis de revenir a la
+//    qualite d'avant au premier plan. Sans lecteur reconnu, ce signal ne fait rien.
 window.TA = window.TA || {};
 TA.modules = TA.modules || {};
 TA.modules.quality = (function () {
@@ -18,8 +21,10 @@ TA.modules.quality = (function () {
   const SAVED_KEY = 'ta_saved_quality';   // '' = la cle Twitch n'avait pas de qualite par defaut
   const MIGRATED_KEY = 'ta_quality_v2';   // reparation unique du 160p laisse par les versions < 1.12.1
   const LOW = '160p30';
+  const RESIGNAL_MS = 15000;              // en fond, on redemande le 160p au plus toutes les 15 s
   let unsub = null;
   let lastPath = null;
+  let lastLow = 0;
 
   function readQ() {
     try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { return {}; }
@@ -70,15 +75,24 @@ TA.modules.quality = (function () {
     } catch (e) { /* stockage indisponible */ }
   }
 
-  function onVis() { if (document.hidden) setLow(); else restore(); }
+  // Signal au monde de la page (player.js) : evenement DOM sans donnees (le detail d'un
+  // CustomEvent ne traverse pas fiablement les mondes isoles).
+  function signal(kind) {
+    try { document.dispatchEvent(new Event('ta-quality-' + kind)); } catch (e) { /* page fermee */ }
+  }
+  function onVis() {
+    if (document.hidden) { setLow(); lastLow = Date.now(); signal('low'); }
+    else { restore(); signal('restore'); }
+  }
   // Un onglet qui se ferme ou se recharge ne laisse jamais le 160p derriere lui.
   function onPageHide() { restore(); }
   // Navigation interne de Twitch (changement de chaine, raid) : un NOUVEAU lecteur va demarrer
   // et lire la cle. On la remet dans l'etat que veut cet onglet avant qu'il ne la lise.
   function onDom() {
-    if (location.pathname === lastPath) return;
-    lastPath = location.pathname;
-    onVis();
+    if (location.pathname !== lastPath) { lastPath = location.pathname; onVis(); return; }
+    // En fond : le lecteur peut ne pas etre pret au passage en arriere-plan (pub, chargement) ;
+    // on redemande le 160p de temps en temps, player.js ne fait rien s'il y est deja.
+    if (document.hidden && Date.now() - lastLow > RESIGNAL_MS) { lastLow = Date.now(); signal('low'); }
   }
 
   return {
@@ -97,6 +111,7 @@ TA.modules.quality = (function () {
       window.removeEventListener('pagehide', onPageHide);
       if (unsub) { unsub(); unsub = null; }
       restore(); // ne pas laisser le 160p ecrit quand on desactive la fonction
+      signal('restore');
     }
   };
 })();

@@ -65,6 +65,17 @@
     return 0;
   }
 
+  // Delai a venir, compact : "dans 45 min", "dans 3 h", "dans 2 j" (FR) ou "in 3 h" (EN).
+  function formatRelativeFuture(ts, now, lang) {
+    const en = String(lang || '').toLowerCase().startsWith('en');
+    const min = Math.max(0, Math.round((ts - now) / 60000));
+    if (min < 60) return en ? `in ${min} min` : `dans ${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 48) return en ? `in ${h} h` : `dans ${h} h`;
+    const d = Math.round(h / 24);
+    return en ? `in ${d} d` : `dans ${d} j`;
+  }
+
   // Retire le verbe d'action en tete d'un nom de drop ("Recuperer X" -> "X").
   // Utile quand l'etiquette du bouton de reclamation est captee comme nom (bandeau sur stream).
   function cleanDropName(name) {
@@ -146,28 +157,6 @@
     return games.filter((g) => g.game).concat(games.filter((g) => !g.game));
   }
 
-  // Regroupe l'historique par jeu pour l'affichage. Entree attendue dans l'ordre d'affichage
-  // (la plus recente d'abord) ; l'ordre est conserve dans chaque groupe, et les groupes sortent
-  // dans l'ordre de leur entree la plus recente. Deux groupes a part : les paliers de points
-  // (qui n'ont jamais de jeu) gardent leur place chronologique, tandis que les drops non
-  // etiquetes - historique d'avant la v1.12, ou claim sans categorie lisible - passent en fin.
-  function groupHistoryByGame(entries) {
-    if (!Array.isArray(entries)) return [];
-    // Cles PREFIXEES : 'p' pour les paliers de points, 'g:<jeu>' pour un jeu ('g:' = non
-    // etiquete). Aucun nom de jeu lu dans le DOM ne peut donc percuter le groupe des points.
-    const groups = [];
-    const byKey = new Map();
-    entries.forEach((e) => {
-      const points = !!(e && e.type === 'points');
-      const game = (!points && e && e.game) || '';
-      const key = points ? 'p' : 'g:' + game;
-      let g = byKey.get(key);
-      if (!g) { g = { key, game, points, entries: [] }; byKey.set(key, g); groups.push(g); }
-      g.entries.push(e);
-    });
-    return groups.filter((g) => g.key !== 'g:').concat(groups.filter((g) => g.key === 'g:'));
-  }
-
   // Etat d'un onglet Twitch pour l'onglet "En direct", a partir de l'instantane renvoye par le
   // content script (null / undefined = pas de reponse) et du statut de chargement de l'onglet.
   // Pas de reponse sur une page DEJA chargee ('complete') = le script n'y tourne pas : c'est
@@ -232,12 +221,200 @@
     return Number.isFinite(n) ? { value: Math.round(n * (m[2] === 'k' ? 1e3 : 1e6)), exact: false } : null;
   }
 
+  // Slug BRUT (tel qu'ecrit dans l'URL) du jeu porte par un lien vers l'annuaire :
+  // "/directory/category/escape-from-tarkov?filter=drops" -> "escape-from-tarkov".
+  function gameSlugFromHref(href) {
+    const m = String(href || '').match(/\/directory\/(?:category|game)\/([^/?#]+)/);
+    return m && /^[\w%.-]+$/.test(m[1]) ? m[1] : '';
+  }
+
+  // Annuaire des chaines EN DIRECT qui ont les drops actives pour ce jeu (verifie le 06/10/2026 :
+  // ?filter=drops ne garde que les chaines "DropsEnabled"). tawatch=1 demande au script de
+  // contenu d'y ouvrir la premiere chaine (module participate).
+  function participateUrl(slug) {
+    return slug ? `https://www.twitch.tv/directory/category/${slug}?filter=drops&tawatch=1` : '';
+  }
+
+  // Jour LOCAL d'un horodatage, en cle triable "AAAA-MM-JJ" ('' sans horodatage valide).
+  function dayKey(ts) {
+    if (typeof ts !== 'number' || !Number.isFinite(ts)) return '';
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // Historique groupe par jour, dans l'ordre recu (le plus recent d'abord). Les entrees sans
+  // date forment un dernier groupe a cle vide : jamais perdues.
+  function groupHistoryByDay(entries) {
+    if (!Array.isArray(entries)) return [];
+    const groups = [];
+    const byKey = new Map();
+    entries.forEach((e) => {
+      if (!e || typeof e !== 'object') return;
+      const key = dayKey(e.ts);
+      let g = byKey.get(key);
+      if (!g) { g = { day: key, entries: [] }; byKey.set(key, g); groups.push(g); }
+      g.entries.push(e);
+    });
+    return groups.filter((g) => g.day).concat(groups.filter((g) => !g.day));
+  }
+
+  // Date de fin d'une campagne, lue dans le texte du bloc de campagne de l'inventaire
+  // ("Date de fin : 14 oct. 2026 a 01:59", "Se termine dans 3 jours", "Ends Oct 14, 1:59 AM",
+  // "14/10/2026 01:59"...). Le texte recu commence a l'indice de fin (observer.js coupe ce qui
+  // precede : une date de debut ne peut pas etre prise pour la fin). Renvoie un horodatage, ou
+  // null des que la lecture est douteuse (deux dates, date impossible, jj/mm ambigu) : l'affichage
+  // disparait alors, il ne devine jamais.
+  const MONTHS = {
+    janv: 0, jan: 0, janvier: 0, january: 0, fevr: 1, fev: 1, feb: 1, fevrier: 1, february: 1,
+    mars: 2, mar: 2, march: 2, avr: 3, apr: 3, avril: 3, april: 3, mai: 4, may: 4,
+    juin: 5, jun: 5, june: 5, juil: 6, jul: 6, juillet: 6, july: 6, aout: 7, aug: 7, august: 7,
+    sept: 8, sep: 8, septembre: 8, september: 8, oct: 9, octobre: 9, october: 9,
+    nov: 10, novembre: 10, november: 10, dec: 11, decembre: 11, december: 11
+  };
+  function parseEndDate(text, now, lang) {
+    const s = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\s\u00a0\u202f]+/g, ' ');
+    if (!s.trim()) return null;
+    const ok = (ts) => (Number.isFinite(ts) && ts > now - 864e5 && ts < now + 400 * 864e5 ? ts : null);
+    // Heure, cherchee APRES la date : "a 01:59", "1:59 am", "01h59" ; jamais une duree ("2 h 00 min").
+    const timeIn = (str) => {
+      const tm = str.match(/\b(\d{1,2}) ?[:h] ?(\d{2})(?!\d)(?! ?min) ?(am|pm)?/);
+      if (!tm) return null;
+      let hh = parseInt(tm[1], 10) % 24;
+      const mm = parseInt(tm[2], 10);
+      if (mm > 59) return null;
+      if (tm[3] === 'pm' && hh < 12) hh += 12;
+      if (tm[3] === 'am' && hh === 12) hh = 0;
+      return [hh, mm];
+    };
+    // Date absolue d'abord, plus precise qu'un "(dans 8 jours)" ecrit a cote : numerique
+    // (jj/mm/aaaa en francais, mm/jj/aaaa en anglais americain) ou en mots. Les jours abreges
+    // francais sont retires avant : dans "mar. 14 oct.", "mar" serait lu comme mars.
+    const lg = String(lang || '').toLowerCase();
+    const s1 = s.replace(/\b(lun|mar|mer|jeu|ven|sam|dim)\. /g, '');
+    const words = s1.replace(/[.,]/g, ' ').replace(/ +/g, ' ');   // "14 oct. 2026" -> "14 oct 2026"
+    const dates = [];
+    let m;
+    const numRe = /\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b/g;
+    while ((m = numRe.exec(s1))) dates.push({ kind: 'num', a: +m[1], b: +m[2], y: +m[3], at: m.index, len: m[0].length });
+    const frRe = /\b(\d{1,2})(?:er)? ([a-z]+)(?: (\d{4}))?/g;
+    while ((m = frRe.exec(words))) if (MONTHS[m[2]] != null) dates.push({ kind: 'fr', day: +m[1], month: MONTHS[m[2]], y: m[3] ? +m[3] : null, at: m.index, len: m[0].length, src: words });
+    const enRe = /\b([a-z]+) (\d{1,2})(?:st|nd|rd|th)?(?: (\d{4}))?\b/g;
+    while ((m = enRe.exec(words))) if (MONTHS[m[1]] != null) dates.push({ kind: 'en', day: +m[2], month: MONTHS[m[1]], y: m[3] ? +m[3] : null, at: m.index, len: m[0].length, src: words });
+    if (dates.length > 1) return null;              // plusieurs dates : on ne choisit pas
+    if (!dates.length) {
+      // Relatif : "dans 3 jours", "in 5 hours".
+      const rel = s1.match(/\b(?:dans|in) (\d+) ?(minutes?|min|heures?|hours?|h|jours?|days?|j|d|semaines?|weeks?)\b/);
+      if (rel) {
+        const n = parseInt(rel[1], 10);
+        const u = rel[2];
+        const ms = /^min/.test(u) ? 6e4 : /^(h|heure|hour)/.test(u) ? 36e5 : /^(semaine|week)/.test(u) ? 7 * 864e5 : 864e5;
+        return ok(now + n * ms);
+      }
+      // "Demain a 01:59" : le jour J+1 a l'heure lue (23:59 sans heure).
+      const tom = s1.match(/\b(demain|tomorrow)\b/);
+      if (tom) {
+        const tt = timeIn(s1.slice(tom.index)) || [23, 59];
+        const d = new Date(now);
+        return ok(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, tt[0], tt[1]).getTime());
+      }
+      return null;
+    }
+    const d0 = dates[0];
+    let day; let month; let year;
+    if (d0.kind === 'num') {
+      if (d0.a > 12 && d0.b <= 12) { day = d0.a; month = d0.b - 1; }
+      else if (d0.b > 12 && d0.a <= 12) { day = d0.b; month = d0.a - 1; }
+      else if (lg.startsWith('fr')) { day = d0.a; month = d0.b - 1; }
+      else if (lg === 'en-us') { day = d0.b; month = d0.a - 1; }
+      else return null;                             // jj/mm ou mm/jj : impossible a trancher
+      year = d0.y;
+    } else { day = d0.day; month = d0.month; year = d0.y; }
+    const t = timeIn((d0.src || s1).slice(d0.at + d0.len)) || [23, 59];
+    const y0 = new Date(now).getFullYear();
+    const build = (y) => {
+      const dt = new Date(y, month, day, t[0], t[1]);
+      return dt.getMonth() === month && dt.getDate() === day ? dt.getTime() : NaN;   // pas de 31 novembre
+    };
+    let ts = build(year || y0);
+    if (!Number.isFinite(ts)) return null;
+    // Sans annee : une date passee de plus d'un mois est celle de l'an prochain ("14 janv." lu en
+    // decembre) ; passee de moins d'un mois, c'est une campagne terminee -> null.
+    if (!year && ts < now - 864e5) ts = ts < now - 30 * 864e5 ? build(y0 + 1) : NaN;
+    return ok(ts);
+  }
+
+  // Temps de visionnage encore necessaire pour finir une campagne : ses drops avancent EN MEME
+  // TEMPS, donc c'est le plus long des temps restants (null si aucun n'est connu).
+  function campaignRemainingMin(drops) {
+    const v = (drops || []).map((d) => (d && typeof d.remainingMin === 'number' ? d.remainingMin : null)).filter((x) => x != null);
+    return v.length ? Math.max(...v) : null;
+  }
+
+  // Chaine de repli suivante : celle qui suit la chaine courante dans la liste, ou la premiere si
+  // on n'y est pas. Jamais de retour au debut : une liste entierement hors ligne s'arrete au bout.
+  function nextFallback(list, current) {
+    const l = (Array.isArray(list) ? list : []).filter(Boolean);
+    if (!l.length) return '';
+    const i = l.indexOf(current);
+    if (i < 0) return l[0];
+    return i + 1 < l.length ? l[i + 1] : '';
+  }
+
+  // Suivi de progression des drops en cours, pour l'alerte "drop bloque". prev : { cle: { pct,
+  // since, watch, notified } } du releve precedent ; watchByGame : { slug de jeu: secondes de
+  // lecture cumulees sur des chaines de CE jeu }. Un drop est BLOQUE quand :
+  //  - son pourcentage n'a pas bouge depuis le seuil (30 min, ou deux "points de %" pour un drop
+  //    tres long) ;
+  //  - au moins 25 min sur 30 de lecture ont ete comptees sur des chaines de SON jeu pendant ce
+  //    temps (une campagne laissee de cote, dont on ne regarde pas le jeu, n'est jamais jugee) ;
+  //  - aucun autre drop de sa campagne n'avance (sinon il attend son tour : campagne sequentielle).
+  const STUCK_MS = 30 * 60 * 1000;
+  const STUCK_WATCH_RATIO = 25 / 30;
+  function dropKey(d) { return [d.game || '', d.campaign || '', d.name || ''].join('|'); }
+  function trackProgress(prev, list, now, watchByGame) {
+    const progress = {};
+    const stuck = [];
+    const games = watchByGame && typeof watchByGame === 'object' ? watchByGame : {};
+    // Lecture "propre" : un jeu nomme "constructor" ne doit pas lire Object.prototype.
+    const watchOf = (slug) => (slug ? (Object.prototype.hasOwnProperty.call(games, slug) ? Number(games[slug]) || 0 : 0) : null);
+    const items = (Array.isArray(list) ? list : []).filter((d) => d && typeof d === 'object');
+    items.forEach((d) => {
+      const key = dropKey(d);
+      const p = prev && Object.prototype.hasOwnProperty.call(prev, key) ? prev[key] : null;
+      // Meme % : on garde le suivi. Jeu inconnu au premier releve (watch null) puis lu : le
+      // compteur de lecture part de maintenant, la date du dernier mouvement est gardee.
+      progress[key] = (p && p.pct === d.percent && p.watch !== undefined)
+        ? { ...p, watch: p.watch == null ? watchOf(d.gameSlug) : p.watch }
+        : { pct: d.percent, since: now, watch: watchOf(d.gameSlug), notified: false };
+    });
+    const moving = new Set();
+    items.forEach((d) => { if (now - progress[dropKey(d)].since < STUCK_MS) moving.add((d.game || '') + '|' + (d.campaign || '')); });
+    items.forEach((d) => {
+      const key = dropKey(d);
+      const e = progress[key];
+      if (!d.gameSlug || e.watch == null) return;                         // jeu inconnu : on ne juge pas
+      if (moving.has((d.game || '') + '|' + (d.campaign || ''))) return;  // la campagne avance
+      const perPct = typeof d.remainingMin === 'number' && d.percent < 100 ? d.remainingMin / (100 - d.percent) : 0;
+      const thr = Math.max(STUCK_MS, 2 * perPct * 60000);
+      const watched = watchOf(d.gameSlug) - e.watch;
+      if (now - e.since >= thr && watched >= (thr / 1000) * STUCK_WATCH_RATIO) {
+        stuck.push({
+          key, name: d.name || '', game: d.game || '', campaign: d.campaign || '', gameSlug: d.gameSlug,
+          since: e.since, watchedMin: Math.floor(watched / 60), fresh: !e.notified
+        });
+      }
+    });
+    return { progress, stuck };
+  }
+
   // --- Import d'une sauvegarde : liste blanche des cles ET des valeurs ---------------------
   // Un fichier bricole (ou partage par un ami) ne doit rien pouvoir poser d'autre que des
   // reglages valides : pas d'URL arbitraire pour l'auto-switch, pas d'adresse d'envoi d'erreurs
   // (errorEndpoint n'est jamais importable), pas de type inattendu qui casserait le rendu.
   const BOOL_SETTINGS = ['enabled', 'points', 'drops', 'reload', 'lowQuality', 'antiAfk',
-    'muteBackground', 'keepAlive', 'autoInventory', 'notifications', 'autoSwitch', 'tracker'];
+    'muteBackground', 'keepAlive', 'autoInventory', 'notifications', 'autoSwitch', 'tracker',
+    'autoReloadTabs', 'autoWatch'];
   const TTL_MAX_MIN = 525600;   // un an : au-dela, la valeur n'a pas de sens
   function sanitizeSettings(input, reserved) {
     const out = {};
@@ -257,6 +434,20 @@
         const slug = channelSlug(input.autoSwitchUrl, reserved);
         if (slug) out.autoSwitchUrl = 'https://www.twitch.tv/' + slug;
       }
+    }
+    // Liste de chaines de repli (v1.13) : slugs valides, sans doublon, 5 au plus. Une liste
+    // entierement invalide est ignoree (elle n'efface pas celle deja reglee) ; une liste vide est un
+    // choix explicite. Une sauvegarde 1.12.1, qui ne porte que la chaine unique, devient une liste.
+    if (Array.isArray(input.autoSwitchChannels)) {
+      const list = [];
+      input.autoSwitchChannels.forEach((x) => {
+        const slug = typeof x === 'string' ? channelSlug(x, reserved) : '';
+        if (slug && !list.includes(slug)) list.push(slug);
+      });
+      if (list.length || !input.autoSwitchChannels.length) out.autoSwitchChannels = list.slice(0, 5);
+    } else if (out.autoSwitchUrl) {
+      out.autoSwitchChannels = [channelSlug(out.autoSwitchUrl)];
+      out.autoSwitchUrl = '';
     }
     return out;
   }
@@ -301,9 +492,11 @@
   }
 
   const api = {
-    formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle,
+    formatRelativeTime, formatRelativeFuture, formatCompact, compareVersions, shouldReload, makeThrottle,
     cleanDropName, pruneHistory, sortDropsByEta, tabState, isTabAlert,
-    groupDropsByGame, groupHistoryByGame, gameNameFromHref,
+    groupDropsByGame, gameNameFromHref, gameSlugFromHref, participateUrl,
+    dayKey, groupHistoryByDay, parseEndDate, campaignRemainingMin, nextFallback,
+    dropKey, trackProgress, STUCK_MS,
     isInventoryPath, channelSlug, parseCount, sanitizeSettings, sanitizeStats, sanitizeHistory
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

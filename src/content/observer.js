@@ -117,6 +117,13 @@ TA.dom = (function () {
     return link ? gameNameFrom(link) : '';
   }
 
+  // Slug du jeu de la chaine regardee : sert au service worker a compter le temps de lecture PAR
+  // JEU (alerte "drop bloque" : on ne juge un drop que sur le temps passe a regarder son jeu).
+  function currentGameSlug() {
+    const link = findFirst((TA.selectors && TA.selectors.gameLink) || []);
+    return link ? TAUtil.gameSlugFromHref(link.getAttribute('href') || '') : '';
+  }
+
   // Remonte depuis un element (barre de progression, bouton de reclamation) jusqu'au bloc de
   // campagne : le premier ancetre qui contient un lien vers l'annuaire du jeu. Le nom de
   // campagne est le premier titre de ce bloc qui n'est ni le jeu ni un texte de progression ;
@@ -125,7 +132,7 @@ TA.dom = (function () {
   // liste plate, il ne se casse jamais.
   function findCampaign(fromEl) {
     const sel = ((TA.selectors && TA.selectors.gameLink) || []).join(',');
-    const none = { game: '', campaign: '', block: null };
+    const none = { game: '', campaign: '', slug: '', endsAt: null, block: null };
     if (!sel) return none;
     let el = fromEl;
     for (let i = 0; i < 10 && el; i++) {
@@ -133,11 +140,40 @@ TA.dom = (function () {
       try { link = el.querySelector ? el.querySelector(sel) : null; } catch (e) { link = null; }
       if (link) {
         const game = gameNameFrom(link);
-        return { game, campaign: campaignNameIn(el, game), block: el };
+        return {
+          game,
+          campaign: campaignNameIn(el, game),
+          slug: TAUtil.gameSlugFromHref(link.getAttribute('href') || ''),   // annuaire des chaines participantes
+          endsAt: campaignEndIn(el),
+          block: el
+        };
       }
       el = el.parentElement;
     }
     return none;
+  }
+
+  // Date de fin de la campagne : premier texte court du bloc qui porte un indice ("Date de fin",
+  // "Ends"...) et dont TAUtil.parseEndDate tire une date. null sinon (rien n'est devine).
+  function campaignEndIn(block) {
+    const hints = (TA.selectors && TA.selectors.campaignEndHints) || [];
+    if (!hints.length || !block.querySelectorAll) return null;
+    const lang = document.documentElement.lang || '';
+    let nodes = [];
+    try { nodes = block.querySelectorAll('p, span, time'); } catch (e) { nodes = []; }
+    for (const n of nodes) {
+      const t = (n.textContent || '').trim();
+      if (!t || t.length > 120) continue;
+      // Texte a partir de l'indice seulement : "Debut : 3 oct. - Fin : 14 oct." ne doit jamais
+      // donner la date de debut.
+      const at = hints.map((re) => t.search(re)).filter((i) => i >= 0);
+      if (!at.length) continue;
+      const tail = t.slice(Math.min(...at));
+      const iso = n.getAttribute && n.getAttribute('datetime');
+      const ts = iso ? Date.parse(iso) : TAUtil.parseEndDate(tail, Date.now(), lang);
+      if (Number.isFinite(ts)) return ts;
+    }
+    return null;
   }
 
   function campaignNameIn(block, game) {
@@ -186,7 +222,7 @@ TA.dom = (function () {
 
   return {
     isClickable, findFirst, findByText, click, subscribe,
-    currentChannel, currentGame, findCampaign, isProgressText, isChannelOffline,
+    currentChannel, currentGame, currentGameSlug, findCampaign, isProgressText, isChannelOffline,
     start: ensureObserving, stop: disconnect
   };
 })();

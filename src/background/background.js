@@ -14,7 +14,10 @@ const DEFAULT_SETTINGS = {
   autoInventory: false,   // garde/ouvre l'onglet inventaire des drops en arriere-plan (opt-in)
   tracker: true,          // suivi temps de visionnage / drops en cours (pas de toggle visible)
   autoSwitch: false,      // bascule si chaine hors-ligne (opt-in, redirige l'onglet)
-  autoSwitchUrl: '',      // URL de repli pour l'auto-switch
+  autoSwitchUrl: '',      // ancienne chaine de repli unique (avant la v1.13), migree dans la liste
+  autoSwitchChannels: [], // chaines de repli, dans l'ordre (slugs, 5 au plus)
+  autoReloadTabs: true,   // apres une mise a jour, recharge les onglets Twitch en arriere-plan
+  autoWatch: false,       // drop bloque -> ouvre une chaine participante en arriere-plan (opt-in)
   historyTtlMin: 0,       // vidage auto de l'historique apres X min (0 / vide = jamais)
   errorEndpoint: ''       // URL log-error de giw-site-web (a renseigner ; vide = pas d'envoi)
 };
@@ -28,8 +31,13 @@ const DEFAULT_STATS = {
   byChannel: {},          // { slug: { points, drops, seconds } }
   inProgress: [],         // drops en cours { name, percent }
   inProgressTs: null,     // date du dernier snapshot non vide (anti-flicker au reload)
-  heartbeats: {}          // { tabId: ts } -> nb d'onglets actifs
+  heartbeats: {},         // { tabId: ts } -> nb d'onglets actifs
+  watchByGame: {},        // { slug de jeu: secondes de lecture } -> alerte "drop bloque"
+  progress: {},           // { cle de drop: { pct, since, watch, notified } } -> alerte "drop bloque"
+  stuck: [],              // drops bloques au dernier releve (lus par le popup)
+  autoWatchTs: {}         // { slug de jeu: date } -> ouverture auto d'une chaine participante
 };
+const AUTO_WATCH_GAP = 60 * 60 * 1000;      // au plus une ouverture auto par jeu et par heure
 const POINTS_NOTIFY_STEP = 5000;            // notif points tous les 5000 pts cumules
 const HISTORY_MAX = 200;                    // nombre max d'evenements conserves
 const ERROR_THROTTLE_MS = 60 * 60 * 1000;   // 1 email max / erreur identique / heure
@@ -77,16 +85,79 @@ async function reloadInventoryTabs() {
   } catch (e) { /* ignore */ }
 }
 
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   const cur = await chrome.storage.local.get(['settings', 'stats']);
+  const settings = { ...DEFAULT_SETTINGS, ...(cur.settings || {}) };
+  // v1.13 : l'ancienne chaine de repli unique devient le premier element de la liste.
+  if ((!Array.isArray(settings.autoSwitchChannels) || !settings.autoSwitchChannels.length) && settings.autoSwitchUrl) {
+    const slug = TAUtil.channelSlug(settings.autoSwitchUrl);
+    settings.autoSwitchChannels = slug ? [slug] : [];
+  }
   await chrome.storage.local.set({
-    settings: { ...DEFAULT_SETTINGS, ...(cur.settings || {}) },
+    settings,
     stats: { ...DEFAULT_STATS, ...(cur.stats || {}) }
   });
   ensureAlarm();
   updateBadge();
   checkUpdate();
   ensureInventoryTab();
+  // Apres une installation ou une mise a jour (rechargement de l'extension compris), les
+  // onglets Twitch deja ouverts n'ont plus de scripts : ils ne sont plus suivis. On recharge
+  // ceux qui sont en arriere-plan ; l'onglet actif de chaque fenetre, peut-etre regarde, est
+  // laisse au bouton "Recharger" du popup.
+  if ((details.reason === 'install' || details.reason === 'update') && settings.autoReloadTabs !== false) {
+    reloadBackgroundTwitchTabs();
+  }
+});
+
+// Pages ou un rechargement peut faire perdre une saisie (paiement, reglages, abonnement...) :
+// jamais rechargees d'office.
+const NO_AUTO_RELOAD = /^\/(settings|subs|checkout|payments|redeem|wallet|bits|login|signup|activate|messages)(\/|$)/i;
+async function reloadBackgroundTwitchTabs() {
+  try {
+    const tabs = await chrome.tabs.query({ url: 'https://www.twitch.tv/*' });
+    let delay = 0;
+    for (const tab of tabs) {
+      if (tab.active || tab.id == null || tab.discarded || tab.status === 'unloaded') continue;   // endormis : laisses tels quels
+      // Onglet de fond qu'on entend (son non coupe) : tu l'ecoutes, on n'y touche pas. Un onglet
+      // coupe par le mute de fond reste "audible" pour Chrome : celui-la est recharge.
+      if (tab.audible && !(tab.mutedInfo && tab.mutedInfo.muted)) continue;
+      let path = '';
+      try { path = new URL(tab.url).pathname; } catch (e) { continue; }
+      if (NO_AUTO_RELOAD.test(path)) continue;
+      setTimeout(() => chrome.tabs.reload(tab.id).catch(() => {}), delay);   // espaces : pas de rafale
+      delay += 800;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// Ouvre l'annuaire du jeu filtre sur les chaines qui ont les drops actives ; le module
+// participate y choisit la premiere chaine en direct. Mesure du 06/10/2026 : Chrome ne charge
+// pas la video d'un onglet ouvert en arriere-plan tant qu'il n'a jamais ete affiche. Le bouton du
+// popup ouvre donc l'onglet au premier plan ; l'ouverture automatique le cree en fond et previent
+// par une notification (un clic l'affiche, et la lecture demarre).
+async function openParticipating(slug, active, notice) {
+  const url = TAUtil.participateUrl(slug);
+  if (!url) return;
+  try {
+    const tab = await chrome.tabs.create({ url, active: !!active });
+    if (!active && notice && tab && tab.id != null) {
+      chrome.notifications.create('watch-' + tab.id, {
+        type: 'basic', iconUrl: chrome.runtime.getURL('icons/icon-128.png'), title: notice.title, message: notice.message
+      });
+    }
+  } catch (e) { /* onglet refuse */ }
+}
+
+// Clic sur la notification d'une chaine ouverte en fond : on l'affiche (la lecture demarre).
+chrome.notifications.onClicked.addListener((id) => {
+  const m = /^watch-(\d+)$/.exec(id);
+  if (!m) return;
+  const tabId = Number(m[1]);
+  chrome.tabs.update(tabId, { active: true }).then((tab) => {
+    if (tab && tab.windowId != null) chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+  }).catch(() => {});
+  chrome.notifications.clear(id);
 });
 
 chrome.runtime.onStartup.addListener(() => { ensureAlarm(); checkUpdate(); ensureInventoryTab(); });
@@ -156,6 +227,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'pruneHistory') { pruneHistoryNow(); return false; }
   // Reset et import des compteurs : demandes par le popup SEUL, et ecrites dans la meme file
   // que les claims (sinon un battement d'onglet concurrent pouvait ressusciter les compteurs).
+  // Bouton "Regarder une chaine participante" du popup.
+  if (msg.type === 'watchCampaign') {
+    if (!sender.url || !sender.url.startsWith(chrome.runtime.getURL(''))) return false;
+    if (typeof msg.slug === 'string' && /^[\w%.-]+$/.test(msg.slug)) openParticipating(msg.slug, true);
+    return false;
+  }
   if (msg.type === 'resetStats' || msg.type === 'importStats') {
     if (!sender.url || !sender.url.startsWith(chrome.runtime.getURL(''))) return false;
     const job = msg.type === 'resetStats' ? resetStats() : importStats(msg);
@@ -192,7 +269,10 @@ function resetStats() {
     const { stats } = await chrome.storage.local.get('stats');
     const cur = stats || {};
     await chrome.storage.local.set({
-      stats: { ...DEFAULT_STATS, byChannel: {}, heartbeats: {}, inProgress: cur.inProgress || [], inProgressTs: cur.inProgressTs || null },
+      stats: {
+        ...DEFAULT_STATS, byChannel: {}, heartbeats: {}, watchByGame: {}, progress: {}, stuck: [], autoWatchTs: {},
+        inProgress: cur.inProgress || [], inProgressTs: cur.inProgressTs || null
+      },
       history: []
     });
     await chrome.storage.local.remove('lastError');
@@ -206,7 +286,9 @@ function importStats(msg) {
     const patch = {};
     if (msg.stats && typeof msg.stats === 'object') {
       const cur = { ...DEFAULT_STATS, ...(stats || {}) };
-      patch.stats = { ...cur, ...TAUtil.sanitizeStats(msg.stats) };
+      // Le suivi des drops bloques repart de zero : le temps importe ne doit pas faire passer
+      // d'un coup tous les drops immobiles pour bloques.
+      patch.stats = { ...cur, ...TAUtil.sanitizeStats(msg.stats), progress: {}, stuck: [] };
     }
     if (Array.isArray(msg.history)) patch.history = TAUtil.sanitizeHistory(msg.history, HISTORY_MAX);
     if (Object.keys(patch).length) await chrome.storage.local.set(patch);
@@ -271,6 +353,13 @@ function handleWatch(msg, sender) {
     const now = Date.now();
     const sec = Math.max(0, Math.min(120, msg.seconds || 0)); // borne de securite
     s.watchSeconds = (s.watchSeconds || 0) + sec;
+    // Temps de lecture PAR JEU (alerte "drop bloque" : un drop n'est juge que sur son jeu).
+    if (sec && typeof msg.gameSlug === 'string' && /^[\w%.-]{1,80}$/.test(msg.gameSlug) && msg.gameSlug !== '__proto__') {
+      s.watchByGame = { ...(s.watchByGame || {}) };
+      // Lecture "propre" : un jeu nomme "constructor" ne doit pas lire Object.prototype.
+      const prevSec = Object.prototype.hasOwnProperty.call(s.watchByGame, msg.gameSlug) ? Number(s.watchByGame[msg.gameSlug]) || 0 : 0;
+      s.watchByGame[msg.gameSlug] = prevSec + sec;
+    }
     const ch = msg.channel || '';
     if (ch) {
       s.byChannel = s.byChannel || {};
@@ -295,11 +384,47 @@ function handleInProgress(msg) {
     // Au reload de l'inventaire, la page renvoie brievement 0 drop : on ignore ce vidage
     // transitoire tant qu'on a eu une liste non vide il y a moins de 6 min.
     if (list.length === 0 && s.inProgressTs && now - s.inProgressTs < 6 * 60 * 1000) return;
-    // Liste identique : on ne met a jour que la date du releve, sans reecrire 'stats' pour rien
-    // (chaque ecriture fait re-rendre le popup ouvert).
-    const same = JSON.stringify(list) === JSON.stringify(s.inProgress || []);
-    if (same && list.length && s.inProgressTs && now - s.inProgressTs < 5 * 60 * 1000) return;
+    // Suivi de progression : un drop dont le % ne bouge plus alors qu'un stream joue est bloque.
+    // Page inventaire figee (module drops coupe : plus de rechargement) -> rien n'est juge.
+    const pageFresh = typeof msg.pageAge !== 'number' || msg.pageAge < 10 * 60 * 1000;
+    const tracked = TAUtil.trackProgress(s.progress || {}, list, now, s.watchByGame || {});
+    const progress = tracked.progress;
+    const stuck = pageFresh ? tracked.stuck : [];
+    const fresh = stuck.filter((x) => x.fresh);
+    if (fresh.length) {
+      const { settings = {} } = await chrome.storage.local.get('settings');
+      const lang = TAi18n.resolveLang(settings);
+      // Une notification par CAMPAGNE (ses drops avancent ensemble : une seule cause).
+      const seen = new Set();
+      fresh.forEach((x) => {
+        progress[x.key].notified = true;
+        const camp = x.game + '|' + x.campaign;
+        if (seen.has(camp)) return;
+        seen.add(camp);
+        if (settings.notifications !== false) {
+          notify(TAi18n.t(lang, 'notif.stuck.title'), TAi18n.t(lang, 'notif.stuck.body', { name: x.name || x.campaign || x.game, n: x.watchedMin }));
+        }
+        // Option : ouvrir une chaine participante, au plus une fois par jeu et par heure.
+        s.autoWatchTs = { ...(s.autoWatchTs || {}) };
+        if (settings.autoWatch === true && x.gameSlug && now - (s.autoWatchTs[x.gameSlug] || 0) > AUTO_WATCH_GAP) {
+          s.autoWatchTs[x.gameSlug] = now;
+          openParticipating(x.gameSlug, false, {
+            title: TAi18n.t(lang, 'notif.watch.title'),
+            message: TAi18n.t(lang, 'notif.watch.body', { game: x.game || x.campaign || x.name })
+          });
+        }
+      });
+    }
+    // 'since' (et non des minutes) : la vue ne change qu'a l'apparition ou la fin d'un blocage.
+    const stuckView = stuck.map(({ key, name, game, campaign, gameSlug, since }) => ({ key, name, game, campaign, gameSlug, since }));
+    // Liste identique et rien de nouveau : on ne reecrit pas 'stats' pour rien (chaque ecriture
+    // fait re-rendre le popup ouvert), sauf pour rafraichir la date du releve toutes les 5 min.
+    const same = JSON.stringify(list) === JSON.stringify(s.inProgress || []) &&
+      JSON.stringify(stuckView) === JSON.stringify(s.stuck || []);
+    if (same && !fresh.length && list.length && s.inProgressTs && now - s.inProgressTs < 5 * 60 * 1000) return;
     s.inProgress = list;
+    s.progress = progress;
+    s.stuck = stuckView;
     if (list.length) s.inProgressTs = now;
     await chrome.storage.local.set({ stats: s });
   });
