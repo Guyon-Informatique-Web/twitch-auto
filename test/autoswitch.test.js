@@ -5,24 +5,31 @@
 //   - compteur scope par chaine (un hit offline de la chaine quittee ne contamine pas la suivante)
 //   - latch 'done' (une seule bascule), gardes (deja sur la cible / url vide / hors chaine)
 //   - re-validation offline a l'echeance du delai de 3s (ne pas quitter une chaine redevenue live)
+//   - cible comparee en SLUG (casse, www, saisie nue) et plafond de 3 bascules / 10 min
 const assert = require('assert');
 const path = require('path');
 
 const FALLBACK = 'https://www.twitch.tv/fallback';
 
-function loadAutoswitch({ channel = 'chan', url = FALLBACK, href = 'https://www.twitch.tv/chan' } = {}) {
+function loadAutoswitch({ channel = 'chan', url = FALLBACK, href = 'https://www.twitch.tv/chan', session = null } = {}) {
   let assignCount = 0;
   let assignedTo = null;
-  const timers = [];          // callbacks de setTimeout en attente (la bascule differee de 3s)
+  let timers = [];            // setTimeout en attente (la bascule differee de 3s) : { id, fn }
+  let nextId = 1;
   let tickFn = null;          // le tick() capture via TA.dom.subscribe
   let curChannel = channel;
   let offline = false;
+  const store = new Map(session ? Object.entries(session) : []);
 
   global.window = global;
-  global.setTimeout = (fn) => { timers.push(fn); return timers.length; };
+  global.setTimeout = (fn) => { const id = nextId++; timers.push({ id, fn }); return id; };
+  global.clearTimeout = (id) => { timers = timers.filter((x) => x.id !== id); };
+  global.sessionStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
+  global.TAUtil = require('../src/shared/util.js');
   global.location = { href, assign: (u) => { assignCount += 1; assignedTo = u; } };
   global.TA = {
     settings: { autoSwitchUrl: url },
+    selectors: { notChannelPaths: ['', 'directory', 'drops', 'login'] },
     log: { info() {}, warn() {}, error() {} },
     dom: {
       currentChannel: () => curChannel,
@@ -39,10 +46,11 @@ function loadAutoswitch({ channel = 'chan', url = FALLBACK, href = 'https://www.
     tick: () => tickFn(),
     setOffline: (v) => { offline = v; },
     setChannel: (v) => { curChannel = v; },
-    fireTimers: () => { const t = timers.slice(); timers.length = 0; t.forEach((fn) => fn()); },
+    fireTimers: () => { const t = timers.slice(); timers = []; t.forEach((x) => x.fn()); },
     pendingTimers: () => timers.length,
     assignCount: () => assignCount,
-    assignedTo: () => assignedTo
+    assignedTo: () => assignedTo,
+    session: () => store
   };
 }
 
@@ -98,7 +106,7 @@ function loadAutoswitch({ channel = 'chan', url = FALLBACK, href = 'https://www.
 
 // --- Cas 5 : deja sur la cible -> jamais de bascule (anti-boucle) ---
 {
-  const d = loadAutoswitch({ href: FALLBACK });
+  const d = loadAutoswitch({ channel: 'fallback', href: FALLBACK });
   d.mod.start();
   d.setOffline(true);
   d.tick(); d.tick();
@@ -155,6 +163,83 @@ function loadAutoswitch({ channel = 'chan', url = FALLBACK, href = 'https://www.
   assert.strictEqual(d.pendingTimers(), 1, 'apres re-arme, deux nouvelles confirmations offline rebasculent');
   d.fireTimers();
   assert.strictEqual(d.assignCount(), 1, 'la bascule part bien si la chaine est toujours offline a l echeance');
+  d.mod.stop();
+}
+
+// --- Cas 10 (REGRESSION boucle) : cible saisie sans www et avec une autre casse, alors qu'on
+//     est deja dessus et qu'elle est hors-ligne -> AUCUNE bascule (l'ancienne garde par prefixe
+//     d'URL ne la reconnaissait pas et redirigeait vers elle-meme toutes les ~4 s) ---
+{
+  const d = loadAutoswitch({ channel: 'fallback', url: 'https://twitch.tv/FallBack', href: 'https://www.twitch.tv/fallback' });
+  d.mod.start();
+  d.setOffline(true);
+  d.tick(); d.tick(); d.tick();
+  assert.strictEqual(d.pendingTimers(), 0, 'deja sur la chaine de repli (autre casse, sans www) -> pas de bascule');
+  d.mod.stop();
+}
+
+// --- Cas 11 : un nom de chaine nu suffit, la bascule vise l'URL canonique ---
+{
+  const d = loadAutoswitch({ url: 'Fallback' });
+  d.mod.start();
+  d.setOffline(true);
+  d.tick(); d.tick();
+  d.fireTimers();
+  assert.strictEqual(d.assignedTo(), 'https://www.twitch.tv/fallback', 'nom nu -> https://www.twitch.tv/<slug>');
+  d.mod.stop();
+}
+
+// --- Cas 12 : cible invalide (autre site, chemin reserve, pas de chaine) -> jamais de bascule ---
+['https://evil.example/x', 'https://www.twitch.tv/directory', 'twitch.tv/'].forEach((url) => {
+  const d = loadAutoswitch({ url });
+  d.mod.start();
+  d.setOffline(true);
+  d.tick(); d.tick();
+  assert.strictEqual(d.pendingTimers(), 0, `cible invalide "${url}" -> pas de bascule`);
+  d.mod.stop();
+});
+
+// --- Cas 13 : plafond de 3 bascules / 10 min pour l'onglet (filet anti-boucle ultime) ---
+{
+  const now = Date.now();
+  const d = loadAutoswitch({ session: { ta_autoswitch_log: JSON.stringify([now - 1000, now - 2000, now - 3000]) } });
+  d.mod.start();
+  d.setOffline(true);
+  d.tick(); d.tick();
+  assert.strictEqual(d.pendingTimers(), 0, '3 bascules recentes -> on reste sur place');
+  d.mod.stop();
+}
+{
+  const d = loadAutoswitch();
+  d.mod.start();
+  d.setOffline(true);
+  d.tick(); d.tick();
+  d.fireTimers();
+  assert.strictEqual(JSON.parse(d.session().get('ta_autoswitch_log')).length, 1, 'chaque bascule est enregistree');
+  d.mod.stop();
+}
+
+// --- Cas 14 : couper la fonction pendant les 3 s annule la bascule armee ---
+{
+  const d = loadAutoswitch();
+  d.mod.start();
+  d.setOffline(true);
+  d.tick(); d.tick();
+  assert.strictEqual(d.pendingTimers(), 1, 'bascule armee');
+  d.mod.stop();
+  assert.strictEqual(d.pendingTimers(), 0, 'stop() annule le minuteur');
+  assert.strictEqual(d.assignCount(), 0, 'aucune navigation apres stop()');
+}
+
+// --- Cas 15 : changement de chaine (raid) pendant les 3 s -> on ne quitte pas la nouvelle ---
+{
+  const d = loadAutoswitch({ channel: 'A' });
+  d.mod.start();
+  d.setOffline(true);
+  d.tick(); d.tick();
+  d.setChannel('B');
+  d.fireTimers();
+  assert.strictEqual(d.assignCount(), 0, 'la chaine a change pendant le delai -> pas de bascule');
   d.mod.stop();
 }
 

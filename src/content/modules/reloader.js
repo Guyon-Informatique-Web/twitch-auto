@@ -9,6 +9,7 @@ TA.modules.reloader = (function () {
   const DELAY = 5000;
   let unsub = null;
   let pending = false;
+  let reloadTimer = null;
 
   function history() {
     try { return JSON.parse(sessionStorage.getItem(KEY) || '[]'); } catch (e) { return []; }
@@ -39,9 +40,16 @@ TA.modules.reloader = (function () {
         return;
       }
       pending = true;
-      record(now);
       TA.log.info('reloader', `erreur player detectee, reload dans ${DELAY / 1000}s`);
-      setTimeout(() => location.reload(), DELAY);
+      reloadTimer = setTimeout(() => {
+        reloadTimer = null;
+        // Le lecteur a pu repartir seul pendant ces 5 s : on ne recharge (et on ne compte dans le
+        // quota de 5 / 10 min) que si l'erreur est encore la. Une erreur qui clignote ne grille
+        // donc plus le quota sans jamais recharger.
+        if (!hasTransientError()) { pending = false; return; }
+        try { record(Date.now()); } catch (e) { pending = false; return; }   // sans compteur, pas de reload (anti-boucle)
+        location.reload();
+      }, DELAY);
     } catch (e) { TA.log.error('reloader', e); }
   }
 
@@ -49,6 +57,10 @@ TA.modules.reloader = (function () {
     id: 'reloader',
     settingKey: 'reload',
     start() { unsub = TA.dom.subscribe(tick); },
-    stop() { if (unsub) { unsub(); unsub = null; } }
+    stop() {
+      if (unsub) { unsub(); unsub = null; }
+      if (reloadTimer) { clearTimeout(reloadTimer); reloadTimer = null; }   // fonction coupee : pas de reload
+      pending = false;
+    }
   };
 })();

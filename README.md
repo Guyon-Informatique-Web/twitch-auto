@@ -14,11 +14,11 @@ Extension Chrome (Manifest V3) qui automatise Twitch : auto-claim des **points d
 - **Drops** : reclamation auto via l'inventaire ET via le bandeau qui apparait sur un stream.
 - **Farming multi-onglets** : les drops progressent sur TOUS les onglets ouverts en parallele (pas seulement l'onglet actif), et les videos de fond ne se mettent plus en pause.
 - **Reload auto** du player en cas d'erreur (avec garde anti-boucle).
-- **Qualite mini** (160p) et **mute** sur les onglets en arriere-plan, **anti-AFK** (gates "toujours la" / contenu sensible), **anti-pause**.
+- **Qualite mini** (160p) pour les streams qui demarrent en arriere-plan (ta qualite au premier plan n'est jamais touchee), **mute** des onglets en arriere-plan (un onglet coupe a la main le reste), **anti-AFK** (gates "toujours la" / contenu sensible), **anti-pause**.
 - **Suivi** : temps de visionnage, drops en cours avec % et **temps restant estime (ETA)**, stats par chaine, historique. L'onglet Stats met en avant le **prochain drop** (celui qui tombera en premier).
 - **Range par jeu et par campagne** : les drops en cours et l'historique sont groupes par jeu puis par campagne. Les entrees qui n'ont pas pu etre etiquetees (avant la v1.12, ou reclamees depuis le bandeau d'un stream) restent visibles sous "Sans jeu".
-- **Onglet "En direct"** : une carte par onglet Twitch ouvert, avec son etat reel (en direct / en pause / fige / hors-ligne / inventaire), la qualite forcee, le mute et le temps passe sur la chaine. Boutons **Aller a l'onglet**, **Recharger** (si le lecteur est fige) et **Fermer**. Une pastille dans l'en-tete indique le nombre d'onglets qui farment, ou le nombre d'alertes.
-- **Notifications**, **sauvegarde** (export/import des reglages, compteurs et historique), **auto-MAJ**, **inventaire auto**, **auto-switch** vers une chaine de repli.
+- **Onglet "En direct"** : une carte par onglet Twitch ouvert, avec son etat reel (en direct / en pause / fige / hors-ligne / a recharger / inventaire), la qualite reellement decodee (160p, 720p...), le mute et le temps passe sur la chaine. Boutons **Aller a l'onglet**, **Recharger** (si le lecteur est fige, ou si l'onglet est "a recharger" parce que l'extension a ete rechargee depuis son ouverture) et **Fermer**. Une pastille dans l'en-tete indique le nombre d'onglets qui farment, ou le nombre d'alertes.
+- **Notifications**, **sauvegarde** (export/import des reglages, compteurs et historique ; le fichier est filtre a l'import), **auto-MAJ**, **inventaire auto**, **auto-switch** vers une chaine de repli (nom de chaine ou lien twitch.tv, au plus 3 bascules par 10 min).
 - **Interface bilingue (FR / EN)** : selecteur de langue a drapeaux dans l'onglet Reglages ; le popup et les notifications desktop suivent ton choix (auto-detecte depuis ton navigateur par defaut).
 
 ## Installation
@@ -47,7 +47,7 @@ Grace a la cle d'ID epinglee dans le manifest, le stockage (compteurs, historiqu
 - **Tous les selecteurs Twitch** sont centralises dans `src/content/selectors.js` : c'est le seul fichier a corriger quand Twitch change son interface.
 - **Tous les textes d'interface** sont centralises dans `src/shared/i18n.js` (dictionnaire FR / EN) : seul fichier a editer pour ajuster ou ajouter une traduction.
 - **Diagnostic** : le bouton "Tester les selecteurs" (onglet Reglages), lance sur une page Twitch, indique ce que l'extension trouve.
-- **Tests** des fonctions pures : `node test/util.test.js`.
+- **Tests** (9 suites Node, sans dependance) : `for f in test/*.test.js; do node "$f"; done`.
 
 ## Licence
 

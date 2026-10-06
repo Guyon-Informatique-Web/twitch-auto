@@ -17,13 +17,17 @@ TA.selectors = {
   // Solde de points de chaine affiche (pour calculer le gain reel d'un coffre).
   // FR confirme : <span class="ScAnimatedNumber-..."> dans un <button aria-label="Vous avez X Points...">.
   // (Le streamer peut renommer ses points, ex. "Points Zen" -> on ne se base pas sur le mot "chaine".)
+  // Pas de repli generique 'span[class*="ScAnimatedNumber"]' : il attrapait le compteur de
+  // spectateurs ou le solde de Bits, et un ecart de spectateurs devenait un "gain" de points.
   pointsBalance: [
     '[data-test-selector="balance-string"]',
     '[data-a-target="balance-string"]',
     '[data-test-selector="community-points-summary"] span[class*="ScAnimatedNumber"]',
-    'button[aria-label*="Points" i] span[class*="ScAnimatedNumber"]',
-    'span[class*="ScAnimatedNumber"]'
+    'button[aria-label*="Points" i] span[class*="ScAnimatedNumber"]'
   ],
+  // Solde de BITS, voisin du solde de points dans le meme resume (verifie le 06/10/2026 sur une
+  // page non connectee : il est le seul ScAnimatedNumber du resume). Jamais pris pour des points.
+  bitsBalance: ['[data-test-selector="bits-balance-string"]'],
 
   // Bouton de reclamation d'un drop
   dropClaim: [
@@ -66,10 +70,13 @@ TA.selectors = {
   //  ce qui evite deux listes "offline" desynchronisables. Voir bas de fichier.)
 
   // Segments de chemin qui ne sont PAS une chaine (pour identifier la chaine courante).
+  // (Sans 'login', la page de connexion s'affichait comme une chaine "login" en pause.)
   notChannelPaths: [
     '', 'directory', 'drops', 'settings', 'u', 'p', 'subscriptions', 'wallet',
     'inventory', 'friends', 'search', 'videos', 'following', 'prime', 'turbo',
-    'downloads', 'jobs', 'store', 'team', 'event', 'popout', 'moderator'
+    'downloads', 'jobs', 'store', 'team', 'event', 'popout', 'moderator',
+    'login', 'signup', 'logout', 'subs', 'redeem', 'activate', 'bits', 'messages',
+    'payments', 'checkout', 'embed', 'broadcast', 'collections', 'passport-callback'
   ],
 
   // Barre de progression d'un drop en cours (page inventaire).

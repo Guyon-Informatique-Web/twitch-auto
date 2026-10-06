@@ -14,9 +14,14 @@ TA.modules.tracker = (function () {
     } catch (e) { /* SW endormi */ }
   }
 
+  // Au moins une video joue vraiment. On parcourt TOUTES les videos, comme le watchdog et la
+  // vue En direct : un lecteur decoratif en pause place avant le stream ne doit pas faire
+  // perdre le temps de visionnage.
   function isPlaying() {
-    const v = document.querySelector('video');
-    return !!(v && !v.paused && !v.ended && v.readyState >= 2);
+    for (const v of document.querySelectorAll('video')) {
+      if (!v.paused && !v.ended && v.readyState >= 2) return true;
+    }
+    return false;
   }
 
   function beat() {
@@ -30,7 +35,7 @@ TA.modules.tracker = (function () {
 
   function snapshotInProgress() {
     try {
-      if (!location.pathname.startsWith('/drops')) return;
+      if (!TAUtil.isInventoryPath(location.pathname)) return;
       const list = [];
       const camps = {};   // "jeu|campagne" -> { total, done } : compte les barres VUES dans le DOM
       document.querySelectorAll(TA.selectors.dropProgress.join(',')).forEach((bar) => {

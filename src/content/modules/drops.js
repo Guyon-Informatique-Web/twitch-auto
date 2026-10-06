@@ -14,7 +14,16 @@ TA.modules.drops = (function () {
   let lastClick = 0;
   let recent = [];
 
-  function onInventory() { return location.pathname.startsWith('/drops'); }
+  // Segment exact : une chaine nommee "dropsquad" n'est pas la page inventaire.
+  function onInventory() { return TAUtil.isInventoryPath(location.pathname); }
+
+  // Un lien qui navigue (href reel) n'est jamais un bouton de reclamation : le cliquer ferait
+  // quitter l'inventaire et serait compte comme un drop.
+  function isNavLink(el) {
+    if (el.tagName !== 'A') return false;
+    const h = (el.getAttribute('href') || '').trim();
+    return !!h && h !== '#' && !/^javascript:/i.test(h);
+  }
 
   // Boutons de reclamation candidats.
   function findButtons() {
@@ -24,12 +33,17 @@ TA.modules.drops = (function () {
       try { document.querySelectorAll(sel).forEach((el) => out.push(el)); } catch (e) { /* selecteur invalide */ }
     });
     if (onInventory()) {
-      // 2) page inventaire = contexte sur : match par sous-chaine sur boutons/liens
+      // 2) page inventaire = contexte sur : match par sous-chaine sur boutons/liens. On ecarte
+      //    les conteneurs (leur texte contient celui du vrai bouton : deux clics, deux drops
+      //    comptes), les liens de navigation et les libelles d'etat ("Claimed" contient "claim").
       const hints = TA.selectors.dropClaimTextHints;
       document.querySelectorAll('button, [role="button"], a').forEach((el) => {
         const t = (el.textContent || '').trim().toLowerCase();
         const a = (el.getAttribute('aria-label') || '').toLowerCase();
-        if (hints.some((h) => t.includes(h) || a.includes(h))) out.push(el);
+        if (!hints.some((h) => t.includes(h) || a.includes(h))) return;
+        if (/\b(un)?claimed\b/.test(t) || isNavLink(el)) return;
+        if (el.querySelector('button, [role="button"]')) return;
+        out.push(el);
       });
     } else {
       // 3) sur un stream = bandeau "drop pret" : UNIQUEMENT un <button> dont le libelle EGALE

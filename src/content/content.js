@@ -8,7 +8,7 @@ window.TA = window.TA || {};
 
   function apply() {
     if (!settings) return;
-    const master = settings.enabled;
+    const master = settings.enabled !== false;   // meme lecture que le popup : absent = actif
     for (const id in registry) {
       const mod = registry[id];
       const want = master && settings[mod.settingKey] !== false;
@@ -31,7 +31,7 @@ window.TA = window.TA || {};
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.settings) {
-      settings = changes.settings.newValue || {};
+      settings = changes.settings.newValue || { enabled: true };
       TA.settings = settings;
       apply();
     }
@@ -45,7 +45,9 @@ window.TA = window.TA || {};
     return {
       url: location.href,
       points: has(S.pointsClaim),
-      pointsBalance: has(S.pointsBalance),
+      // Meme lecture que le calcul du gain : le solde de Bits voisin ne compte pas comme un solde
+      // de points (sur une page non connectee, il faisait afficher "Solde : OK" a tort).
+      pointsBalance: !!(registry.points && registry.points.balance && registry.points.balance()),
       dropSelector: has(S.dropClaim),
       dropText: !!TA.dom.findByText('button, [role="button"], a', S.dropClaimTextHints),
       playerOverlay: has(S.playerOverlay),
@@ -54,18 +56,20 @@ window.TA = window.TA || {};
   }
   // Instantane de l'onglet pour la vue "En direct" du popup. LECTURE SEULE : aucun clic,
   // aucune ecriture, aucun effet de bord (le popup interroge tous les onglets a son ouverture).
-  // Chaque etat vient du module qui le detient (watchdog pour le blocage, quality pour le 160p)
-  // plutot que d'etre rededuit ici a partir des reglages.
+  // Chaque etat vient de sa source de verite : le watchdog pour le blocage, la video elle-meme
+  // pour la qualite (la cle 'video-quality' est commune a tous les onglets, elle ne dit rien de
+  // CET onglet), plutot que d'etre rededuit ici a partir des reglages.
   function liveState() {
     const channel = TA.dom.currentChannel();
     let playing = false;
+    let height = 0;
     for (const v of document.querySelectorAll('video')) {
-      if (!v.paused && !v.ended && v.readyState >= 2) { playing = true; break; }
+      if (!v.paused && !v.ended && v.readyState >= 2) { playing = true; height = v.videoHeight || 0; break; }
     }
     const wd = (registry.watchdog && registry.watchdog.status) ? registry.watchdog.status() : null;
     return {
       channel,
-      inventory: location.pathname.startsWith('/drops'),
+      inventory: TAUtil.isInventoryPath(location.pathname),
       playing,
       hidden: document.hidden,
       // Hors page de chaine (inventaire, annuaire...), la detection hors-ligne n'a pas de sens.
@@ -73,8 +77,8 @@ window.TA = window.TA || {};
       stalled: !!(wd && wd.stalled),
       stalledMin: wd ? wd.stalledMin : null,
       reloads: wd ? wd.reloads : 0,
-      lowQuality: !!(registry.quality && registry.quality.isLow && registry.quality.isLow()),
-      enabled: !!(settings && settings.enabled)
+      quality: playing && height ? height : null,   // hauteur reellement decodee (160, 720, 1080...)
+      enabled: !!settings && settings.enabled !== false
     };
   }
 

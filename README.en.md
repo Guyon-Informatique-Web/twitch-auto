@@ -14,11 +14,11 @@ Chrome extension (Manifest V3) that automates Twitch: auto-claim of **channel po
 - **Drops**: auto-claim via the inventory AND via the banner that appears on a stream.
 - **Multi-tab farming**: drops progress on ALL open tabs in parallel (not only the active one), and background videos no longer pause.
 - **Auto reload** of the player on error (with an anti-loop guard).
-- **Min quality** (160p) and **mute** on background tabs, **anti-AFK** ("still watching" / mature content gates), **anti-pause**.
+- **Min quality** (160p) for streams that start in the background (your foreground quality is never touched), **mute** of background tabs (a tab you muted yourself stays muted), **anti-AFK** ("still watching" / mature content gates), **anti-pause**.
 - **Tracking**: watch time, drops in progress with % and **estimated time remaining (ETA)**, per-channel stats, history. The Stats tab highlights the **next drop** (the one landing first).
 - **Sorted by game and campaign**: drops in progress and history are grouped by game, then by campaign. Entries that could not be labelled (before v1.12, or claimed from an on-stream banner) stay visible under "No game".
-- **"Live" tab**: one card per open Twitch tab, with its real state (live / paused / frozen / offline / inventory), forced quality, mute and time spent on the channel. **Go to tab**, **Reload** (only when the player is frozen) and **Close** buttons. A pill in the header shows how many tabs are farming, or how many alerts.
-- **Notifications**, **backup** (export/import of settings, counters and history), **auto-update**, **auto inventory**, **auto-switch** to a fallback channel.
+- **"Live" tab**: one card per open Twitch tab, with its real state (live / paused / frozen / offline / needs reload / inventory), the quality actually decoded (160p, 720p...), mute and time spent on the channel. **Go to tab**, **Reload** (when the player is frozen, or when the tab "needs reload" because the extension was reloaded after it opened) and **Close** buttons. A pill in the header shows how many tabs are farming, or how many alerts.
+- **Notifications**, **backup** (export/import of settings, counters and history; the file is filtered on import), **auto-update**, **auto inventory**, **auto-switch** to a fallback channel (channel name or twitch.tv link, at most 3 switches per 10 min).
 - **Bilingual interface (FR / EN)**: language picker with flags in the settings tab; the popup and desktop notifications follow your choice (auto-detected from your browser by default).
 
 ## Installation
@@ -47,7 +47,7 @@ Thanks to the ID key pinned in the manifest, storage (counters, history) is kept
 - **All Twitch selectors** are centralized in `src/content/selectors.js`: this is the only file to fix when Twitch changes its interface.
 - **UI strings** are centralized in `src/shared/i18n.js` (FR / EN dictionary): the only file to edit to adjust or add a translation.
 - **Diagnostics**: the "Test selectors" button (Settings tab), run on a Twitch page, shows what the extension finds.
-- **Pure-function tests**: `node test/util.test.js`.
+- **Tests** (9 Node suites, no dependency): `for f in test/*.test.js; do node "$f"; done`.
 
 ## License
 

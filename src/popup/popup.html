@@ -10,29 +10,30 @@
     <h1>Twitch Auto</h1>
     <!-- Pastille d'etat : nb d'onglets qui farment, ou nb d'alertes (fige / hors-ligne). -->
     <span id="pill" class="pill" aria-live="polite" hidden></span>
-    <label class="switch" data-i18n-title="ui.toggle" title="Activer / desactiver">
-      <input type="checkbox" id="master">
+    <label class="switch" data-i18n-title="ui.toggle" title="Activer / désactiver">
+      <input type="checkbox" id="master" data-i18n-aria="ui.toggle" aria-label="Activer / désactiver">
       <span class="slider"></span>
     </label>
   </header>
 
   <div id="update-banner" class="update-banner" aria-live="polite" hidden>
     <span id="update-text"></span>
-    <button id="update-dl" class="update-dl" data-i18n="ui.updateDl">Telecharger la MAJ</button>
+    <button id="update-dl" class="update-dl" data-i18n="ui.updateDl">Télécharger la mise à jour</button>
     <span id="update-hint" class="update-hint"></span>
   </div>
 
+  <!-- Onglets : fleches gauche / droite, Debut et Fin au clavier (gere dans popup.js). -->
   <nav class="tabs" role="tablist">
-    <button class="tab active" data-tab="stats" role="tab" aria-selected="true" data-i18n="ui.tab.stats">Stats</button>
-    <button class="tab" data-tab="live" role="tab" aria-selected="false" data-i18n="ui.tab.live">En direct</button>
-    <button class="tab" data-tab="history" role="tab" aria-selected="false" data-i18n="ui.tab.history">Historique</button>
-    <button class="tab" data-tab="settings" role="tab" aria-selected="false" data-i18n="ui.tab.settings">Reglages</button>
+    <button class="tab active" id="tabbtn-stats" data-tab="stats" role="tab" aria-selected="true" aria-controls="tab-stats" data-i18n="ui.tab.stats">Stats</button>
+    <button class="tab" id="tabbtn-live" data-tab="live" role="tab" aria-selected="false" aria-controls="tab-live" tabindex="-1" data-i18n="ui.tab.live">En direct</button>
+    <button class="tab" id="tabbtn-history" data-tab="history" role="tab" aria-selected="false" aria-controls="tab-history" tabindex="-1" data-i18n="ui.tab.history">Historique</button>
+    <button class="tab" id="tabbtn-settings" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-settings" tabindex="-1" data-i18n="ui.tab.settings">Réglages</button>
   </nav>
 
   <!-- Onglet STATS : le prochain drop d'abord, les totaux en bandeau. -->
   <!-- Icones : jeu Lucide (https://lucide.dev), licence ISC -->
-  <div class="panel" id="tab-stats">
-    <section class="totals" aria-live="polite">
+  <div class="panel" id="tab-stats" role="tabpanel" aria-labelledby="tabbtn-stats">
+    <section class="totals">
       <div class="tot">
         <span class="tot-lab" data-i18n="ui.stat.points">Points</span>
         <b class="cyan" id="points-value">0</b>
@@ -50,7 +51,7 @@
       </div>
     </section>
 
-    <section id="hero" class="hero-wrap" aria-live="polite"></section>
+    <section id="hero" class="hero-wrap"></section>
 
     <!-- Titre pose en JS : "Campagnes" quand le regroupement par jeu a fonctionne,
          "Ensuite" quand on retombe sur la liste plate. -->
@@ -60,7 +61,7 @@
     </section>
 
     <section id="channels-section" hidden>
-      <h2 data-i18n="ui.topChannels">Top chaines</h2>
+      <h2 data-i18n="ui.topChannels">Top chaînes</h2>
       <div id="channels"></div>
     </section>
 
@@ -69,23 +70,24 @@
     </footer>
   </div>
 
-  <!-- Onglet EN DIRECT : une carte par onglet Twitch ouvert. -->
-  <div class="panel" id="tab-live" hidden>
-    <div id="live" class="live" aria-live="polite"></div>
+  <!-- Onglet EN DIRECT : une carte par onglet Twitch ouvert (rafraichie toutes les 5 s :
+       pas d'aria-live ici, un lecteur d'ecran la relirait en boucle). -->
+  <div class="panel" id="tab-live" role="tabpanel" aria-labelledby="tabbtn-live" hidden>
+    <div id="live" class="live"></div>
   </div>
 
   <!-- Onglet HISTORIQUE -->
-  <div class="panel" id="tab-history" hidden>
+  <div class="panel" id="tab-history" role="tabpanel" aria-labelledby="tabbtn-history" hidden>
     <div id="history" class="history"></div>
   </div>
 
   <!-- Onglet REGLAGES -->
-  <div class="panel" id="tab-settings" hidden>
+  <div class="panel" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
     <!-- Choix de la langue : drapeaux colores FR / EN (US) -->
     <div class="lang-row">
       <span class="lang-label" data-i18n="ui.langLabel">Langue</span>
       <div class="lang-select" role="group" data-i18n-aria="ui.langLabel" aria-label="Langue">
-        <button class="lang-btn" data-lang="fr" type="button" title="Francais" aria-label="Francais" aria-pressed="false">
+        <button class="lang-btn" data-lang="fr" type="button" title="Français" aria-label="Français" aria-pressed="false">
           <svg class="flag" viewBox="0 0 24 16" width="26" height="17" aria-hidden="true">
             <rect width="24" height="16" fill="#ffffff"/>
             <rect width="8" height="16" fill="#0055a4"/>
@@ -121,16 +123,17 @@
     </section>
 
     <div id="autoswitch-row" class="as-row" hidden>
-      <input id="autoswitch-url" type="text" data-i18n-ph="ui.autoswitchPh" placeholder="URL de repli (ex: https://www.twitch.tv/maChaine)">
+      <input id="autoswitch-url" type="text" data-i18n-ph="ui.autoswitchPh" placeholder="Chaîne de repli (ex. : twitch.tv/maChaine)" spellcheck="false" autocomplete="off">
+      <p id="autoswitch-err" class="field-err" role="alert" hidden></p>
     </div>
 
     <div class="as-row hist-ttl-row">
-      <label for="history-ttl" data-i18n="ui.historyTtl">Vider l'historique apres (min)</label>
+      <label for="history-ttl" data-i18n="ui.historyTtl">Vider l’historique après (min)</label>
       <input id="history-ttl" type="number" min="0" step="1" inputmode="numeric" data-i18n-ph="ui.historyTtlPh" placeholder="0 = jamais">
     </div>
 
     <div class="diag-test">
-      <button id="diag-test-btn" class="btn-sec" data-i18n="ui.diagTest">Tester les selecteurs (sur une page Twitch)</button>
+      <button id="diag-test-btn" class="btn-sec" data-i18n="ui.diagTest">Tester les sélecteurs (sur une page Twitch)</button>
       <p id="diag-result" class="diag-result"></p>
     </div>
 
@@ -144,15 +147,20 @@
       <!-- Selecteur de fichier masque, pilote par le bouton Importer. -->
       <input type="file" id="import-file" accept="application/json,.json" hidden>
       <p id="import-result" class="bk-result" role="status"></p>
+      <!-- Confirmation d'ecrasement des compteurs : deux vrais boutons (clavier compris). -->
+      <div id="import-actions" class="bk-row bk-ask" hidden>
+        <button id="import-confirm" class="bk-btn danger" type="button" data-i18n="ui.importConfirm">Écraser</button>
+        <button id="import-cancel" class="bk-btn" type="button" data-i18n="ui.importCancel">Garder les miens</button>
+      </div>
       <p class="bk-note" data-i18n="ui.backupNote"></p>
     </section>
 
-    <p id="diag" class="diag" role="alert"></p>
+    <p id="diag" class="diag" role="status"></p>
 
     <div class="foot-row settings-foot">
       <span id="version">v1.0.0</span>
       <span class="foot-actions">
-        <button id="reset" class="link" data-i18n="ui.reset">reinitialiser</button>
+        <button id="reset" class="link" data-i18n="ui.reset">réinitialiser</button>
       </span>
     </div>
 
@@ -162,6 +170,8 @@
 
   <script src="../shared/util.js"></script>
   <script src="../shared/i18n.js"></script>
+  <!-- Selecteurs Twitch (liste des chemins qui ne sont pas des chaines, pour l'auto-switch). -->
+  <script src="../content/selectors.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

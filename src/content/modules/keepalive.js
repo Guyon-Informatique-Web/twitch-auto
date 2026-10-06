@@ -8,6 +8,7 @@ TA.modules = TA.modules || {};
 TA.modules.keepalive = (function () {
   let unsub = null;
   let timer = null;
+  let active = false;                 // les listeners 'pause' restent poses apres stop() : inertes
   const wired = new WeakSet();        // videos deja equipees du listener
   const lastPlay = new WeakMap();     // anti-boucle : derniere relance par video
 
@@ -30,6 +31,7 @@ TA.modules.keepalive = (function () {
   }
 
   function onPause(e) {
+    if (!active) return;              // anti-pause desactive : on respecte la pause
     const v = e.target;
     if (shouldResume(v)) play(v);     // relance immediate quand Twitch met en pause en fond
   }
@@ -54,11 +56,13 @@ TA.modules.keepalive = (function () {
     id: 'keepalive',
     settingKey: 'keepAlive',
     start() {
+      active = true;
       unsub = TA.dom.subscribe(tick);   // equipe les nouvelles videos + reprise
       document.addEventListener('visibilitychange', onVis);
       timer = setInterval(tick, 30000); // filet de securite
     },
     stop() {
+      active = false;
       if (unsub) { unsub(); unsub = null; }
       document.removeEventListener('visibilitychange', onVis);
       if (timer) { clearInterval(timer); timer = null; }

@@ -1,4 +1,6 @@
 :root {
+  /* Controles natifs (barres de defilement, fleches du champ numerique) en theme sombre. */
+  color-scheme: dark;
   --bg: #18181b;
   --surface: #1f1f23;
   --line: #2a2a2e;
@@ -8,9 +10,13 @@
   --green: #4ee39c;
   --text: #efeff1;
   --muted: #adadb8;
-  --dim: #6d6d78;
+  /* 4,5:1 sur --surface et 4,85:1 sur --bg (seuil AA) ; l'ancien #6d6d78 tombait a 3,2:1. */
+  --dim: #85858f;
 }
 * { box-sizing: border-box; }
+/* Boutons et champs prennent la police du popup (sinon Arial sous Windows). Les boutons
+   passent en graisse 700 : rendus jusqu'ici en Arial gras, ils gardent ainsi leur aspect. */
+button, input { font-family: inherit; }
 body {
   width: 360px;
   margin: 0;
@@ -53,7 +59,7 @@ body {
 .switch input:checked + .slider::before { transform: translateX(18px); }
 
 .tabs { display: flex; padding: 0 6px; border-bottom: 1px solid var(--line); }
-.tab { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; color: #8d8d97; padding: 8px 2px 9px; font-size: 11px; font-weight: 600; cursor: pointer; }
+.tab { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; color: #8d8d97; padding: 8px 2px 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .tab.active { color: var(--text); border-bottom-color: var(--purple); }
 .tab:hover { color: var(--text); }
 .tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
@@ -88,6 +94,8 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 .hero-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ff9d00, var(--gold)); }
 .hero-meta { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: #8d8d97; }
 .hero-meta .num { font-variant-numeric: tabular-nums; }
+/* Releve des drops en cours trop ancien (inventaire ferme) : les chiffres sont figes. */
+.hero-stale { margin: 9px 0 0; padding-top: 8px; border-top: 1px solid #2f2f35; font-size: 11px; color: var(--gold); line-height: 1.45; }
 
 /* ---- Etats vides (Stats / En direct / Historique) ---- */
 .empty { text-align: center; padding: 22px 16px 18px; }
@@ -132,6 +140,9 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 .lcard { background: var(--surface); border-radius: 10px; padding: 11px 12px; border-left: 3px solid var(--cyan); }
 .lcard.warn { border-left-color: var(--gold); background: #231e17; }
 .lcard.idle { border-left-color: #3a3a42; }
+/* En pause : ni le style "en direct" (cyan + libelle rouge) ni une alerte. */
+.lcard.paused { border-left-color: #3a3a42; }
+.lcard.paused .lcard-state { color: var(--muted); }
 .lcard-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
 .lcard-state { font-size: 9.5px; font-weight: 700; letter-spacing: .1em; color: #ff6b6b; flex: 0 0 auto; }
 .lcard.warn .lcard-state { color: var(--gold); }
@@ -156,6 +167,9 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 .feature .fic { color: #8d8d97; flex: 0 0 auto; }
 
 .as-row input { width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #3a3a3d; background: var(--surface); color: var(--text); font-size: 11px; }
+.as-row input::placeholder { color: var(--dim); }
+.field-err { font-size: 11px; color: #ff8b8b; margin: 6px 0 0; line-height: 1.45; }
+.field-err[hidden] { display: none; }
 .hist-ttl-row { display: flex; align-items: center; gap: 8px; }
 .hist-ttl-row label { flex: 1; font-size: 11px; color: var(--text); }
 .hist-ttl-row input { width: 78px; flex: none; text-align: right; }
@@ -167,20 +181,26 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 /* Bloc Sauvegarde : exporter et importer ont le meme poids visuel (meme operation, deux sens). */
 .bk-row { display: flex; gap: 8px; }
 .bk-btn {
-  flex: 1; font-size: 11.5px; font-weight: 600; padding: 9px 6px; border-radius: 8px;
+  flex: 1; font-size: 11.5px; font-weight: 700; padding: 9px 6px; border-radius: 8px;
   border: 1px solid #3a3a42; background: none; color: #c8c8d0; cursor: pointer;
 }
 .bk-btn.primary { background: #1f1a2e; border-color: #4b3a7a; color: #c9b4ff; }
+.bk-btn.danger { border-color: #6b4a1a; color: var(--gold); }
+.bk-ask { margin-top: 8px; }
+.bk-ask[hidden] { display: none; }
 .bk-btn:hover { border-color: var(--purple); color: var(--text); }
 .bk-btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .bk-result { font-size: 11px; margin: 9px 0 0; padding: 8px 10px; border-radius: 8px; background: #16281f; color: var(--green); }
 .bk-result:empty { display: none; }
 .bk-result.err { background: #2a1717; color: #ff8b8b; }
-.bk-result.ask { background: #2a2113; color: var(--gold); cursor: pointer; }
+.bk-result.ask { background: #2a2113; color: var(--gold); }
 .bk-note { font-size: 10.5px; color: var(--dim); margin: 8px 0 0; line-height: 1.5; }
 
 /* ---- Historique ---- */
 .history { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+/* Sans ca, les intitules de groupe (overflow: hidden) se laissaient ecraser par le flex
+   des que la liste depassait la hauteur max : texte coupe en haut de chaque groupe. */
+.history > * { flex-shrink: 0; }
 .hist-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .hist-row .fic { flex: 0 0 auto; }
 .hist-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -196,7 +216,7 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 
 /* ---- Banniere de MAJ ---- */
 .update-banner {
-  margin: 0 14px; padding: 10px; border-radius: 8px;
+  margin: 0 14px 10px; padding: 10px; border-radius: 8px;
   background: #2a1a4a; border: 1px solid var(--purple); color: #d8c4ff;
   display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: center;
 }
@@ -205,7 +225,7 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 .update-banner #update-text { font-size: 12px; font-weight: 600; }
 .update-dl {
   padding: 8px; border: 0; border-radius: 6px; background: var(--purple);
-  color: #fff; font-weight: 600; cursor: pointer; font-size: 12px;
+  color: #fff; font-weight: 700; cursor: pointer; font-size: 12px;
 }
 .update-dl:hover { background: #772ce8; }
 .update-hint { font-size: 11px; color: #8d8d97; }
@@ -228,7 +248,7 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 
 .btn {
   width: 100%; padding: 9px; border: 0; border-radius: 8px;
-  background: var(--purple); color: #fff; font-weight: 600; cursor: pointer; font-size: 12.5px;
+  background: var(--purple); color: #fff; font-weight: 700; cursor: pointer; font-size: 12.5px;
 }
 .btn:hover { background: #772ce8; }
 .btn.sec { background: none; border: 1px solid #3a3a42; color: #c8c8d0; }
@@ -236,6 +256,7 @@ section h2::after { content: ""; flex: 1; height: 1px; background: var(--line); 
 .foot-row { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--dim); }
 .foot-actions { display: flex; gap: 12px; }
 .link { background: none; border: 0; color: var(--dim); cursor: pointer; text-decoration: underline; font-size: 10.5px; }
+.link:hover { color: var(--text); }
 
 .donate { display: block; text-align: center; padding: 9px; border-radius: 8px; background: var(--surface); color: #ff6b9d; font-size: 12px; font-weight: 600; text-decoration: none; }
 .donate:hover { background: #2a2a2e; }

@@ -30,26 +30,31 @@ const FEATURES = [
   ['notifications', ICONS.bell],
   ['autoSwitch', ICONS.shuffle]
 ];
-const EMPTY_STATS = { pointsClaimed: 0, pointsValue: 0, lastPointsClaim: null, dropsClaimed: 0, lastDropsClaim: null };
-// Reglages acceptes a l'import : liste BLANCHE (un fichier bricole ne peut pas polluer le storage).
-const SETTING_KEYS = FEATURES.map(([k]) => k).concat(
-  ['enabled', 'tracker', 'lang', 'autoSwitchUrl', 'historyTtlMin', 'errorEndpoint']);
 const RELEASES_URL = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/latest';
 const DL_PREFIX = 'https://github.com/Guyon-Informatique-Web/twitch-auto/releases/download/';
 const LIVE_REFRESH_MS = 5000;   // rafraichissement de la vue "En direct" tant que le popup est ouvert
+// Au-dela, le releve des drops en cours est signale comme ancien (sans onglet inventaire ouvert,
+// ces chiffres ne bougent plus). Le service worker le rafraichit au moins toutes les 5 min.
+const STALE_MS = 15 * 60 * 1000;
+const ERROR_SHOW_MS = 24 * 3600 * 1000;   // la derniere erreur n'est plus affichee apres 24 h
 // Ordre d'affichage des cartes : les anomalies en haut (c'est ce qu'on doit voir en premier).
 const STATE_ORDER = { stalled: 0, offline: 1, unreachable: 2, live: 3, paused: 4, inventory: 5, other: 6, loading: 7 };
 
 let lastUpdate = null;   // derniere info de MAJ connue (pour le bouton telecharger)
 let currentLang = 'fr';  // langue active du popup (resolue depuis settings.lang ou auto)
 let lastStats = {};      // derniers compteurs charges (temps par chaine pour la vue "En direct")
-let liveTimer = null;
+let resetArmed = false;  // reset en deux temps (declare tot : load() relit cet etat)
+let importMsg = null;    // dernier message d'import { key, vars, kind } : retraduit si la langue change
 const t = (key, vars) => TAi18n.t(currentLang, key, vars);
 const plural = (n) => (n > 1 ? 's' : '');   // pluriel FR et EN ({s} dans les chaines)
+const reserved = () => ((window.TA && TA.selectors && TA.selectors.notChannelPaths) || []);
+
+// N'ecrit que si le texte change : evite de faire relire une zone a un lecteur d'ecran.
+function setText(el, txt) { if (el.textContent !== txt) el.textContent = txt; }
 
 // Applique les libelles statiques (attributs data-i18n*) dans la langue courante.
 function applyStaticI18n() {
-  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n]').forEach((el) => { setText(el, t(el.dataset.i18n)); });
   document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
   document.querySelectorAll('[data-i18n-aria]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
   document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
@@ -117,26 +122,36 @@ function fmtDuration(sec) {
   return `${m} min`;
 }
 
+// Hauteur decodee -> libelle de qualite Twitch ("160p" couvre aussi les flux en 144 lignes).
+function qualityLabel(h) { return h <= 180 ? '160p' : `${h}p`; }
+
+// Les cases de reglage sont construites UNE fois, puis seulement mises a jour : les recreer a
+// chaque ecriture du storage (toutes les 30 a 60 s par onglet qui farme) faisait perdre le focus.
+const featureRows = new Map();   // cle -> { row, cb, span }
 function renderFeatures(settings) {
   const wrap = document.getElementById('features');
-  wrap.replaceChildren();
   const disabled = settings.enabled === false;
   FEATURES.forEach(([key, icon]) => {
+    let f = featureRows.get(key);
+    if (!f) {
+      const row = document.createElement('label');
+      row.className = 'feature';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.addEventListener('change', () => update(key, cb.checked));
+      const span = document.createElement('span');
+      row.append(cb, makeIcon(icon), span);
+      wrap.appendChild(row);
+      f = { row, cb, span };
+      featureRows.set(key, f);
+    }
     const label = t('feat.' + key);
     const desc = t('feat.' + key + '.desc');
-    const row = document.createElement('label');
-    row.className = 'feature';
-    if (desc) row.title = desc;
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = settings[key] !== false;
-    cb.disabled = disabled; // vraiment desactive (clavier inclus) quand l'extension est off
-    if (desc) cb.setAttribute('aria-label', `${label} : ${desc}`);
-    cb.addEventListener('change', () => update(key, cb.checked));
-    const span = document.createElement('span');
-    span.textContent = label;
-    row.append(cb, makeIcon(icon), span);
-    wrap.appendChild(row);
+    setText(f.span, label);
+    f.row.title = desc || '';
+    if (desc) f.cb.setAttribute('aria-label', `${label} : ${desc}`);
+    f.cb.checked = settings[key] !== false;
+    f.cb.disabled = disabled; // vraiment desactive (clavier inclus) quand l'extension est off
   });
 }
 
@@ -169,12 +184,14 @@ function makeHistRow(e, now) {
 function renderHistory(history, now) {
   const wrap = document.getElementById('history');
   wrap.replaceChildren();
-  if (!history || !history.length) {
+  // Entrees mal formees (sauvegarde bricolee, ancien format) : ignorees, jamais bloquantes.
+  const valid = (history || []).filter((e) => e && typeof e === 'object');
+  if (!valid.length) {
     wrap.appendChild(makeEmpty(ICONS.clock, t('hist.empty'), t('hist.emptyHint')));
     return;
   }
   // Plus recent en premier (on cape l'affichage a 40 lignes).
-  const rows = history.slice(-40).reverse();
+  const rows = valid.slice(-40).reverse();
   const groups = TAUtil.groupHistoryByGame(rows);
   // Repli : rien d'etiquete (historique d'avant la v1.12) -> liste plate, sans intitule vide.
   if (groups.length === 1 && !groups[0].game && !groups[0].points) {
@@ -191,7 +208,7 @@ function renderHistory(history, now) {
 }
 
 // Carte "prochain drop" : celui dont l'ETA est le plus court (a defaut, le plus avance).
-function renderHero(list) {
+function renderHero(list, stats, now) {
   const wrap = document.getElementById('hero');
   wrap.replaceChildren();
   const sorted = TAUtil.sortDropsByEta(list);
@@ -236,7 +253,7 @@ function renderHero(list) {
   unit.className = 'hero-unit';
   if (d.remainingMin != null && d.remainingMin < 60) {
     big.textContent = String(d.remainingMin);
-    unit.textContent = t('ui.minutesLeft');
+    unit.textContent = t(d.remainingMin > 1 ? 'ui.minutesLeft' : 'ui.minuteLeft');
   } else if (d.remainingMin != null) {
     big.textContent = fmtDuration(d.remainingMin * 60);
     unit.textContent = t('ui.remaining');
@@ -258,10 +275,18 @@ function renderHero(list) {
   left.textContent = t('ui.dropsCount', { n: sorted.length, s: plural(sorted.length) });
   const right = document.createElement('span');
   right.className = 'num';
-  right.textContent = pct + ' %';
+  // Sans ETA, le pourcentage est deja le gros chiffre : on ne le repete pas en pied de carte.
+  right.textContent = d.remainingMin != null ? pct + ' %' : '';
   meta.append(left, right);
 
   card.append(eyebrow, name, count, bar, meta);
+  // Releve ancien : sans onglet inventaire ouvert, le temps restant affiche ne bouge plus.
+  if (stats.inProgressTs && now - stats.inProgressTs > STALE_MS) {
+    const stale = document.createElement('p');
+    stale.className = 'hero-stale';
+    stale.textContent = t('ui.stale', { ago: TAUtil.formatRelativeTime(stats.inProgressTs, now, currentLang) });
+    card.appendChild(stale);
+  }
   wrap.appendChild(card);
   return sorted;
 }
@@ -275,12 +300,10 @@ function makeCampDrop(d) {
   name.textContent = d.name || t('inprog.defaultName'); name.title = name.textContent;
   const p = document.createElement('span'); p.className = 'camp-pct';
   p.textContent = pct + ' %';
-  line.append(name, p);
-  if (d.remainingMin != null) {
-    const eta = document.createElement('span'); eta.className = 'camp-eta';
-    eta.textContent = '~' + fmtDuration(d.remainingMin * 60);
-    line.appendChild(eta);
-  }
+  // Colonne ETA toujours presente (vide si la duree est inconnue) : les % restent alignes.
+  const eta = document.createElement('span'); eta.className = 'camp-eta';
+  eta.textContent = d.remainingMin != null ? '~' + fmtDuration(d.remainingMin * 60) : '';
+  line.append(name, p, eta);
   const bar = document.createElement('div'); bar.className = 'camp-bar';
   const fill = document.createElement('i'); fill.style.width = pct + '%';
   bar.appendChild(fill);
@@ -332,7 +355,8 @@ function renderDropGroups(sorted) {
       game.title = game.textContent;
       const top = document.createElement('div'); top.className = 'camp-top';
       const nm = document.createElement('span'); nm.className = 'camp-name';
-      nm.textContent = c.campaign; nm.title = c.campaign;
+      // Nom de campagne illisible : un intitule generique plutot qu'une ligne vide.
+      nm.textContent = c.campaign || t('ui.campUnnamed'); nm.title = nm.textContent;
       const count = document.createElement('span'); count.className = 'camp-count';
       // "n/m" seulement quand le tracker a vu des recompenses terminees dans le bloc ;
       // sinon on affiche ce qu'on a mesure : le nombre de drops encore en cours.
@@ -352,7 +376,7 @@ function renderChannels(byChannel) {
   const wrap = document.getElementById('channels');
   wrap.replaceChildren();
   const entries = Object.entries(byChannel || {})
-    .map(([name, c]) => ({ name, points: c.points || 0, drops: c.drops || 0, seconds: c.seconds || 0 }))
+    .map(([name, c]) => ({ name, points: (c && c.points) || 0, drops: (c && c.drops) || 0, seconds: (c && c.seconds) || 0 }))
     .filter((c) => c.points || c.drops || c.seconds)
     .sort((a, b) => (b.drops - a.drops) || (b.points - a.points) || (b.seconds - a.seconds))
     .slice(0, 5);
@@ -368,7 +392,9 @@ function renderChannels(byChannel) {
     const parts = [];
     if (c.points) parts.push(TAUtil.formatCompact(c.points, currentLang) + ' pts');
     if (c.drops) parts.push(c.drops + ' drop' + plural(c.drops));
-    stat.textContent = parts.join(' - ');
+    // Chaine seulement regardee (ni coffre ni drop encore) : on montre au moins le temps passe.
+    if (!parts.length && c.seconds) parts.push(fmtDuration(c.seconds));
+    stat.textContent = parts.join(' · ');
     row.append(av, name, stat);
     wrap.appendChild(row);
   });
@@ -402,8 +428,8 @@ async function collectTabs() {
 }
 
 function focusTab(tab) {
-  if (tab.id != null) chrome.tabs.update(tab.id, { active: true });
-  if (tab.windowId != null) chrome.windows.update(tab.windowId, { focused: true });
+  if (tab.id != null) chrome.tabs.update(tab.id, { active: true }).catch(() => {});
+  if (tab.windowId != null) chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
   window.close();
 }
 
@@ -412,6 +438,7 @@ function makeLiveCard(entry) {
   const card = document.createElement('div');
   card.className = 'lcard';
   if (TAUtil.isTabAlert(state)) card.classList.add('warn');
+  else if (state === 'paused') card.classList.add('paused');
   else if (state === 'inventory' || state === 'other' || state === 'loading') card.classList.add('idle');
 
   // Ligne 1 : etat + nom.
@@ -428,7 +455,7 @@ function makeLiveCard(entry) {
   if (state === 'live') {
     const ch = (lastStats.byChannel || {})[snap.channel];
     txt.textContent = ch && ch.seconds
-      ? `${t('live.playing')} - ${t('live.watched', { dur: fmtDuration(ch.seconds) })}`
+      ? `${t('live.playing')} · ${t('live.watched', { dur: fmtDuration(ch.seconds) })}`
       : t('live.playing');
   } else if (state === 'paused') {
     txt.textContent = t('live.pausedTxt');
@@ -448,28 +475,32 @@ function makeLiveCard(entry) {
     txt.textContent = t('live.loadingTxt');
   }
 
-  // Ligne 3 : ce que l'extension applique + les actions.
+  // Ligne 3 : ce que l'onglet fait reellement + les actions. La qualite affichee est celle que
+  // la video DECODE (la cle de qualite de Twitch est commune a tous les onglets).
   const foot = document.createElement('div'); foot.className = 'lcard-foot';
   const chip = (label2) => { const c = document.createElement('span'); c.className = 'chip'; c.textContent = label2; return c; };
-  if (snap && snap.lowQuality) foot.appendChild(chip('160p'));
+  if (snap && snap.quality) foot.appendChild(chip(qualityLabel(snap.quality)));
   if (tab.mutedInfo && tab.mutedInfo.muted) foot.appendChild(chip(t('live.chip.muted')));
   if (snap && snap.enabled === false) foot.appendChild(chip(t('live.chip.off')));
 
   const acts = document.createElement('span'); acts.className = 'lcard-acts';
+  const act = (key, onClick) => {
+    const b = makeButton(t(key), 'act', onClick);
+    b.dataset.key = `${tab.id}:${key}`;   // pour rendre le focus clavier apres un re-rendu
+    return b;
+  };
   // Recharger a du sens pour un lecteur FIGE et pour un onglet injoignable (c'est meme le
   // seul remede la). Sur une chaine hors-ligne ca ne ramene rien : le reloader exclut deja
   // cet etat pour la meme raison (cf. reloadExcludePatterns).
   if (state === 'stalled' || state === 'unreachable') {
-    acts.appendChild(makeButton(t('live.reload'), 'act', () => {
-      if (tab.id != null) chrome.tabs.reload(tab.id);
-      loadLive();
+    acts.appendChild(act('live.reload', () => {
+      if (tab.id != null) chrome.tabs.reload(tab.id).catch(() => {}).then(() => loadLive(true));
     }));
   }
-  acts.appendChild(makeButton(t('live.goTab'), 'act', () => focusTab(tab)));
+  acts.appendChild(act('live.goTab', () => focusTab(tab)));
   // Fermeture manuelle : utile des qu'une chaine ne rapporte plus rien. Jamais automatique.
-  acts.appendChild(makeButton(t('live.close'), 'act', () => {
-    if (tab.id != null) chrome.tabs.remove(tab.id);
-    loadLive();
+  acts.appendChild(act('live.close', () => {
+    if (tab.id != null) chrome.tabs.remove(tab.id).catch(() => {}).then(() => loadLive(true));
   }));
   foot.appendChild(acts);
 
@@ -479,6 +510,8 @@ function makeLiveCard(entry) {
 
 function renderLive(list) {
   const wrap = document.getElementById('live');
+  // Le rendu est rejoue toutes les 5 s : on rend le focus clavier au meme bouton apres coup.
+  const focusedKey = wrap.contains(document.activeElement) ? document.activeElement.dataset.key : null;
   wrap.replaceChildren();
   if (!list.length) {
     wrap.appendChild(makeEmpty(
@@ -488,6 +521,10 @@ function renderLive(list) {
     return;
   }
   list.forEach((entry) => wrap.appendChild(makeLiveCard(entry)));
+  if (focusedKey) {
+    const again = Array.from(wrap.querySelectorAll('button[data-key]')).find((b) => b.dataset.key === focusedKey);
+    if (again) again.focus();
+  }
 }
 
 // Pastille d'en-tete : les alertes priment sur le compte d'onglets qui farment.
@@ -496,23 +533,36 @@ function renderPill(farming, alerts) {
   if (alerts > 0) {
     pill.hidden = false;
     pill.classList.add('warn');
-    pill.textContent = t('ui.pill.alerts', { n: alerts, s: plural(alerts) });
+    setText(pill, t('ui.pill.alerts', { n: alerts, s: plural(alerts) }));
   } else if (farming > 0) {
     pill.hidden = false;
     pill.classList.remove('warn');
-    pill.textContent = t('ui.pill.tabs', { n: farming, s: plural(farming) });
+    setText(pill, t('ui.pill.tabs', { n: farming, s: plural(farming) }));
   } else {
     pill.hidden = true;
   }
-  document.getElementById('watch-tabs').textContent =
-    farming > 0 ? t('ui.pill.tabs', { n: farming, s: plural(farming) }) : '';
+  setText(document.getElementById('watch-tabs'),
+    farming > 0 ? t('ui.pill.tabs', { n: farming, s: plural(farming) }) : '');
 }
 
-async function loadLive() {
+// Signature d'un instantane : on ne recree pas des cartes identiques toutes les 5 s (un clic
+// qui tombait pendant le remplacement etait perdu).
+let liveSig = '';
+let liveGen = 0;
+async function loadLive(force) {
+  const gen = ++liveGen;
   const list = await collectTabs();
-  renderLive(list);
+  if (gen !== liveGen) return;   // un instantane plus recent est deja parti
+  const byCh = lastStats.byChannel || {};
+  const sig = currentLang + JSON.stringify(list.map(({ tab, snap, state }) => [
+    tab.id, state, tab.title, tab.mutedInfo && tab.mutedInfo.muted,
+    snap && [snap.channel, snap.quality, snap.enabled, snap.stalledMin, snap.reloads],
+    snap && snap.channel && byCh[snap.channel] ? Math.floor((byCh[snap.channel].seconds || 0) / 60) : 0
+  ]));
+  if (force === true || sig !== liveSig) { liveSig = sig; renderLive(list); }
   renderPill(
-    list.filter((x) => x.state === 'live').length,
+    // Un onglet dont l'extension est coupee ne farme pas, meme s'il joue.
+    list.filter((x) => x.state === 'live' && !(x.snap && x.snap.enabled === false)).length,
     list.filter((x) => TAUtil.isTabAlert(x.state)).length
   );
 }
@@ -526,16 +576,20 @@ async function load() {
   lastStats = stats;
 
   // Langue effective d'abord : conditionne tous les libelles ci-dessous.
+  const prevLang = currentLang;
   currentLang = TAi18n.resolveLang(settings);
   applyStaticI18n();
   setLangButtons(currentLang);
+  if (resetArmed) setText(resetBtn, t('ui.resetConfirm'));   // le libelle arme survit au re-rendu
+  if (importMsg) renderImportMsg();                            // message d'import dans la bonne langue
+  if (prevLang !== currentLang) loadLive(true);
 
   // Banniere affichee seulement si la version dispo est STRICTEMENT plus recente que l'installee.
   const installed = chrome.runtime.getManifest().version;
   const banner = document.getElementById('update-banner');
   if (upd && upd.version && TAUtil.compareVersions(upd.version, installed) > 0) {
     banner.hidden = false;
-    document.getElementById('update-text').textContent = t('update.bannerNew', { v: upd.version });
+    setText(document.getElementById('update-text'), t('update.bannerNew', { v: upd.version }));
     lastUpdate = upd;
   } else {
     banner.hidden = true;
@@ -545,14 +599,14 @@ async function load() {
   document.getElementById('master').checked = settings.enabled !== false;
   document.body.classList.toggle('off', settings.enabled === false);
 
-  document.getElementById('points-value').textContent = TAUtil.formatCompact(stats.pointsValue || 0, currentLang);
-  document.getElementById('points-last').textContent = TAUtil.formatRelativeTime(stats.lastPointsClaim, now, currentLang);
-  document.getElementById('drops-value').textContent = TAUtil.formatCompact(stats.dropsClaimed || 0, currentLang);
-  document.getElementById('drops-last').textContent = TAUtil.formatRelativeTime(stats.lastDropsClaim, now, currentLang);
-  document.getElementById('watch-value').textContent = fmtDuration(stats.watchSeconds);
+  setText(document.getElementById('points-value'), TAUtil.formatCompact(stats.pointsValue || 0, currentLang));
+  setText(document.getElementById('points-last'), TAUtil.formatRelativeTime(stats.lastPointsClaim, now, currentLang));
+  setText(document.getElementById('drops-value'), TAUtil.formatCompact(stats.dropsClaimed || 0, currentLang));
+  setText(document.getElementById('drops-last'), TAUtil.formatRelativeTime(stats.lastDropsClaim, now, currentLang));
+  setText(document.getElementById('watch-value'), fmtDuration(stats.watchSeconds));
 
   renderFeatures(settings);
-  renderDropGroups(renderHero(stats.inProgress || []));
+  renderDropGroups(renderHero(stats.inProgress || [], stats, now));
   renderChannels(stats.byChannel || {});
   // Vidage auto de l'historique : on filtre a l'affichage (meme sans nouveau claim) et, si des
   // entrees ont expire, on demande au background de persister la purge (ecriture serialisee via
@@ -566,24 +620,45 @@ async function load() {
   }
   renderHistory(prunedHistory, now);
 
-  // Ligne URL de l'auto-switch (visible seulement si le toggle est actif).
+  // Ligne de la chaine de repli de l'auto-switch (visible seulement si le toggle est actif).
+  // Une valeur enregistree par une ancienne version (page d'annuaire, /videos...) n'est plus
+  // une cible valide : on le dit ici, sinon l'utilisateur croit le repli en place.
   document.getElementById('autoswitch-row').hidden = settings.autoSwitch !== true;
   const asInput = document.getElementById('autoswitch-url');
-  if (document.activeElement !== asInput) asInput.value = settings.autoSwitchUrl || '';
+  if (document.activeElement !== asInput && !asPending) {
+    const stored = settings.autoSwitchUrl || '';
+    asInput.value = stored;
+    if (stored && !TAUtil.channelSlug(stored, reserved())) {
+      asErr.textContent = t('ui.autoswitchErr', { v: stored.slice(0, 60) });
+      asErr.hidden = false;
+    } else {
+      asErr.hidden = true;
+    }
+  }
 
   const histInput = document.getElementById('history-ttl');
   if (document.activeElement !== histInput) histInput.value = settings.historyTtlMin || '';
 
-  document.getElementById('diag').textContent = lastError
-    ? t('diag.lastError', { module: lastError.module, message: lastError.message })
-    : '';
+  // Derniere erreur : datee, et plus affichee au bout de 24 h (elle restait la pour toujours).
+  const showErr = lastError && lastError.ts && now - lastError.ts < ERROR_SHOW_MS;
+  setText(document.getElementById('diag'), showErr
+    ? t('diag.lastError', { module: lastError.module, ago: TAUtil.formatRelativeTime(lastError.ts, now, currentLang), message: lastError.message })
+    : '');
 }
 
-async function update(key, val) {
-  const { settings = {} } = await chrome.storage.local.get('settings');
-  settings[key] = val;
-  await chrome.storage.local.set({ settings });
-  load();
+// Ecritures de reglages en file : deux cases cochees coup sur coup ne s'ecrasent plus
+// (chacune relisait les reglages avant que l'autre ait ecrit). Le re-rendu vient de
+// storage.onChanged, pas d'un load() en plus ici.
+let settingsChain = Promise.resolve();
+function update(key, val) {
+  return patchSettings({ [key]: val });
+}
+function patchSettings(patch) {
+  settingsChain = settingsChain.then(async () => {
+    const { settings = {} } = await chrome.storage.local.get('settings');
+    await chrome.storage.local.set({ settings: { ...settings, ...patch } });
+  }).catch(() => {});
+  return settingsChain;
 }
 
 function openInventory() {
@@ -593,14 +668,36 @@ function openInventory() {
 document.getElementById('update-dl').addEventListener('click', () => {
   // On ne telecharge que depuis une URL de release de NOTRE repo (sinon on ouvre la page).
   if (lastUpdate && lastUpdate.url && lastUpdate.url.startsWith(DL_PREFIX)) {
-    chrome.downloads.download({ url: lastUpdate.url });
-    document.getElementById('update-hint').textContent = t('update.downloaded');
+    chrome.downloads.download({ url: lastUpdate.url })
+      .then(() => setText(document.getElementById('update-hint'), t('update.downloaded')))
+      .catch(() => chrome.tabs.create({ url: RELEASES_URL }));
   } else {
     chrome.tabs.create({ url: RELEASES_URL });
   }
 });
 
-document.getElementById('autoswitch-url').addEventListener('change', (e) => update('autoSwitchUrl', e.target.value.trim()));
+// Chaine de repli : on accepte un nom, un lien avec ou sans https / www, et on enregistre
+// toujours la forme canonique https://www.twitch.tv/<slug>. Saisie invalide = message, rien
+// d'enregistre (une URL bancale faisait boucler ou viser une page morte).
+const asErr = document.getElementById('autoswitch-err');
+// Saisie refusee en attente de correction : load() ne l'ecrase pas par l'ancienne valeur
+// (sinon le message citerait un texte qui n'est plus visible).
+let asPending = false;
+document.getElementById('autoswitch-url').addEventListener('change', (e) => {
+  const raw = e.target.value.trim();
+  const slug = TAUtil.channelSlug(raw, reserved());
+  if (raw && !slug) {
+    asErr.textContent = t('ui.autoswitchErr', { v: raw.slice(0, 60) });
+    asErr.hidden = false;
+    asPending = true;
+    return;
+  }
+  asPending = false;
+  asErr.hidden = true;
+  const url = slug ? 'https://www.twitch.tv/' + slug : '';
+  e.target.value = url;
+  update('autoSwitchUrl', url);
+});
 
 // Vidage auto de l'historique : champ vide ou <= 0 -> 0 (desactive, n'efface rien).
 document.getElementById('history-ttl').addEventListener('change', (e) => {
@@ -646,54 +743,65 @@ document.getElementById('export').addEventListener('click', async () => {
   const { settings = {}, stats = {}, history = [] } = await chrome.storage.local.get(['settings', 'stats', 'history']);
   const payload = JSON.stringify({ exportedAt: new Date().toISOString(), settings, stats, history }, null, 2);
   const url = 'data:application/json;charset=utf-8,' + encodeURIComponent(payload);
-  chrome.downloads.download({ url, filename: 'twitch-auto-sauvegarde.json' });
+  // Date dans le nom : deux sauvegardes ne s'ecrasent pas (twitch-auto-sauvegarde-2026-10-06.json).
+  const day = new Date().toISOString().slice(0, 10);
+  chrome.downloads.download({ url, filename: `twitch-auto-sauvegarde-${day}.json` });
 });
 
 const importResult = document.getElementById('import-result');
+const importActions = document.getElementById('import-actions');
 const importInput = document.getElementById('import-file');
 let pendingStats = null;   // compteurs en attente de confirmation (import en deux temps)
 
-function showImport(msg, kind) {
-  importResult.textContent = msg;
-  importResult.className = 'bk-result' + (kind ? ' ' + kind : '');
+// Le message est garde sous forme de cle : il suit un changement de langue.
+function showImport(key, vars, kind) {
+  importMsg = { key, vars: vars || null, kind: kind || '' };
+  renderImportMsg();
+}
+function renderImportMsg() {
+  importResult.textContent = importMsg ? t(importMsg.key, importMsg.vars) : '';
+  importResult.className = 'bk-result' + (importMsg && importMsg.kind ? ' ' + importMsg.kind : '');
+  importActions.hidden = !(importMsg && importMsg.kind === 'ask' && pendingStats);
 }
 
-// Applique les REGLAGES tout de suite (sans risque), et met les compteurs en attente : ecraser
-// 27 000 points par megarde n'est pas rattrapable, donc ca demande un second clic explicite.
+// Applique les REGLAGES tout de suite (valeurs filtrees), et met les compteurs en attente :
+// ecraser 27 000 points par megarde n'est pas rattrapable, donc ca demande un clic explicite.
 async function applyImport(data) {
   if (!data || typeof data !== 'object' || (!data.settings && !data.stats && !data.history)) {
-    showImport(t('ui.importErr'), 'err');
+    pendingStats = null;   // un fichier invalide n'arme jamais les compteurs du fichier precedent
+    showImport('ui.importErr', null, 'err');
     return;
   }
   let n = 0;
   if (data.settings && typeof data.settings === 'object') {
-    const { settings = {} } = await chrome.storage.local.get('settings');
-    SETTING_KEYS.forEach((k) => {           // liste blanche : on ignore tout le reste du fichier
-      if (Object.prototype.hasOwnProperty.call(data.settings, k)) { settings[k] = data.settings[k]; n += 1; }
-    });
-    await chrome.storage.local.set({ settings });
+    const clean = TAUtil.sanitizeSettings(data.settings, reserved());
+    n = Object.keys(clean).length;
+    if (n) await patchSettings(clean);
   }
   const hasStats = (data.stats && typeof data.stats === 'object') || Array.isArray(data.history);
   if (hasStats) {
     pendingStats = { stats: data.stats, history: data.history };
-    showImport(t('ui.importAsk'), 'ask');
+    showImport('ui.importAsk', null, 'ask');
   } else {
     pendingStats = null;
-    showImport(t('ui.importOk', { n }));
+    showImport('ui.importOk', { n, s: plural(n) });
   }
-  load();
 }
 
-// Second clic sur le message : la, on ecrase compteurs et historique.
-importResult.addEventListener('click', async () => {
+// Confirmation : le service worker ecrit compteurs et historique (valeurs filtrees, meme file
+// que les claims). Refus : on garde les compteurs actuels.
+document.getElementById('import-confirm').addEventListener('click', async () => {
   if (!pendingStats) return;
-  const patch = {};
-  if (pendingStats.stats && typeof pendingStats.stats === 'object') patch.stats = pendingStats.stats;
-  if (Array.isArray(pendingStats.history)) patch.history = pendingStats.history;
+  const { stats, history } = pendingStats;
   pendingStats = null;
-  await chrome.storage.local.set(patch);
-  showImport(t('ui.importOkStats'));
-  load();
+  let r = null;
+  try { r = await chrome.runtime.sendMessage({ type: 'importStats', stats, history }); } catch (e) { r = null; }
+  if (r && r.ok) showImport('ui.importOkStats');
+  else showImport('ui.importFail', null, 'err');
+});
+document.getElementById('import-cancel').addEventListener('click', () => {
+  pendingStats = null;
+  showImport('ui.importCancelled');
 });
 
 function readImportFile(file) {
@@ -704,7 +812,7 @@ function readImportFile(file) {
     try { data = JSON.parse(String(reader.result)); } catch (e) { data = null; }
     applyImport(data);
   };
-  reader.onerror = () => showImport(t('ui.importErr'), 'err');
+  reader.onerror = () => { pendingStats = null; showImport('ui.importErr', null, 'err'); };
   reader.readAsText(file);
 }
 
@@ -723,39 +831,56 @@ backup.addEventListener('drop', (e) => {
   readImportFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
 });
 
-// Reset en deux temps (evite d'effacer compteurs + historique par megarde).
-let resetArmed = false;
+// Reset en deux temps (evite d'effacer compteurs + historique par megarde). Les drops en cours
+// sont gardes : ils decrivent la progression actuelle, pas un cumul.
 let resetTimer = null;
 const resetBtn = document.getElementById('reset');
-function disarmReset() { resetArmed = false; resetBtn.textContent = t('ui.reset'); }
+function disarmReset() { resetArmed = false; setText(resetBtn, t('ui.reset')); }
 resetBtn.addEventListener('click', async () => {
   if (!resetArmed) {
     resetArmed = true;
-    resetBtn.textContent = t('ui.resetConfirm');
+    setText(resetBtn, t('ui.resetConfirm'));
     resetTimer = setTimeout(disarmReset, 3000);
     return;
   }
   clearTimeout(resetTimer);
   disarmReset();
-  await chrome.storage.local.set({ stats: { ...EMPTY_STATS }, history: [] });
-  load();
+  let r = null;
+  try { r = await chrome.runtime.sendMessage({ type: 'resetStats' }); } catch (e) { r = null; }
+  if (!r || !r.ok) setText(document.getElementById('diag'), t('ui.resetFail'));
 });
 
 document.getElementById('version').textContent = 'v' + chrome.runtime.getManifest().version;
 
-// Onglets : Stats / En direct / Historique / Reglages.
+// Onglets : Stats / En direct / Historique / Reglages. Clavier : fleches, Debut, Fin
+// (motif ARIA "tabs" : un seul onglet dans l'ordre de tabulation, celui qui est actif).
+const TAB_NAMES = ['stats', 'live', 'history', 'settings'];
 function showTab(name) {
   document.querySelectorAll('.tab').forEach((tab) => {
     const on = tab.dataset.tab === name;
     tab.classList.toggle('active', on);
     tab.setAttribute('aria-selected', on ? 'true' : 'false');
+    tab.tabIndex = on ? 0 : -1;
   });
-  ['stats', 'live', 'history', 'settings'].forEach((n) => {
+  TAB_NAMES.forEach((n) => {
     document.getElementById('tab-' + n).hidden = (n !== name);
   });
-  if (name === 'live') loadLive(); // etat frais des l'affichage, sans attendre le prochain tick
+  if (name === 'live') loadLive(true); // etat frais des l'affichage, sans attendre le prochain tick
 }
 document.querySelectorAll('.tab').forEach((tab) => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
+document.querySelector('.tabs').addEventListener('keydown', (e) => {
+  const cur = TAB_NAMES.indexOf(document.activeElement && document.activeElement.dataset.tab);
+  if (cur < 0) return;
+  let next = null;
+  if (e.key === 'ArrowRight') next = (cur + 1) % TAB_NAMES.length;
+  else if (e.key === 'ArrowLeft') next = (cur + TAB_NAMES.length - 1) % TAB_NAMES.length;
+  else if (e.key === 'Home') next = 0;
+  else if (e.key === 'End') next = TAB_NAMES.length - 1;
+  if (next == null) return;
+  e.preventDefault();
+  showTab(TAB_NAMES[next]);
+  document.getElementById('tabbtn-' + TAB_NAMES[next]).focus();
+});
 showTab('stats');
 
 // Rafraichit le popup en direct quand compteurs/reglages/historique/MAJ changent.
@@ -770,5 +895,6 @@ applyStaticI18n();
 setLangButtons(currentLang);
 load();
 loadLive();
-liveTimer = setInterval(loadLive, LIVE_REFRESH_MS);
-window.addEventListener('unload', () => { if (liveTimer) clearInterval(liveTimer); });
+// Le minuteur meurt avec le popup : pas besoin de le liberer (et l'evenement 'unload',
+// deprecie par Chrome, n'est plus utilise).
+setInterval(loadLive, LIVE_REFRESH_MS);

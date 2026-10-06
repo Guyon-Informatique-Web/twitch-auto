@@ -104,7 +104,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 async function updateBadge() {
   const { settings } = await chrome.storage.local.get('settings');
-  const on = settings ? settings.enabled : true;
+  const on = !settings || settings.enabled !== false;   // meme lecture que le popup et les onglets
   chrome.action.setBadgeText({ text: on ? 'on' : 'off' });
   chrome.action.setBadgeBackgroundColor({ color: on ? '#00b86b' : '#555555' });
 }
@@ -147,17 +147,71 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === 'mute') {
     // Mute/unmute au niveau de l'onglet (n'interrompt pas la lecture, contrairement a v.muted).
-    if (sender.tab && sender.tab.id != null) {
-      chrome.tabs.update(sender.tab.id, { muted: !!msg.hidden }).catch(() => {});
-    }
+    if (sender.tab && sender.tab.id != null) queueMute(sender.tab.id, !!msg.hidden);
     return false;
   }
   if (msg.type === 'watch') { handleWatch(msg, sender); return false; }
   if (msg.type === 'inprogress') { handleInProgress(msg); return false; }
   if (msg.type === 'inventoryReload') { reloadInventoryTabs(); return false; }
   if (msg.type === 'pruneHistory') { pruneHistoryNow(); return false; }
+  // Reset et import des compteurs : demandes par le popup SEUL, et ecrites dans la meme file
+  // que les claims (sinon un battement d'onglet concurrent pouvait ressusciter les compteurs).
+  if (msg.type === 'resetStats' || msg.type === 'importStats') {
+    if (!sender.url || !sender.url.startsWith(chrome.runtime.getURL(''))) return false;
+    const job = msg.type === 'resetStats' ? resetStats() : importStats(msg);
+    job.then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true;
+  }
   return false;
 });
+
+// Coupe ou remet le son d'un onglet. On ne remet le son que si c'est NOUS qui l'avions coupe
+// (mutedInfo.reason 'extension' + notre id) : un mute choisi a la main est respecte.
+// En file PAR ONGLET : "cache" puis "visible" coup sur coup (Ctrl+Tab) relisaient sinon le meme
+// etat avant la premiere ecriture, et l'onglet revenu devant restait coupe.
+const muteChains = new Map();
+function queueMute(tabId, mute) {
+  const next = (muteChains.get(tabId) || Promise.resolve()).then(() => setTabMuted(tabId, mute));
+  muteChains.set(tabId, next);
+  next.then(() => { if (muteChains.get(tabId) === next) muteChains.delete(tabId); });
+}
+async function setTabMuted(tabId, mute) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    const info = tab.mutedInfo || {};
+    const ours = info.reason === 'extension' && info.extensionId === chrome.runtime.id;
+    if (mute && !info.muted) await chrome.tabs.update(tabId, { muted: true });
+    else if (!mute && info.muted && ours) await chrome.tabs.update(tabId, { muted: false });
+  } catch (e) { /* onglet ferme entre-temps */ }
+}
+
+// Reinitialise compteurs et historique. Les drops en cours sont gardes : ils decrivent la
+// progression actuelle, pas un cumul (sans eux la carte "Prochain drop" tombait vide).
+function resetStats() {
+  return enqueue(async () => {
+    const { stats } = await chrome.storage.local.get('stats');
+    const cur = stats || {};
+    await chrome.storage.local.set({
+      stats: { ...DEFAULT_STATS, byChannel: {}, heartbeats: {}, inProgress: cur.inProgress || [], inProgressTs: cur.inProgressTs || null },
+      history: []
+    });
+    await chrome.storage.local.remove('lastError');
+  });
+}
+
+// Import des compteurs et de l'historique d'une sauvegarde (valeurs filtrees par TAUtil).
+function importStats(msg) {
+  return enqueue(async () => {
+    const { stats } = await chrome.storage.local.get('stats');
+    const patch = {};
+    if (msg.stats && typeof msg.stats === 'object') {
+      const cur = { ...DEFAULT_STATS, ...(stats || {}) };
+      patch.stats = { ...cur, ...TAUtil.sanitizeStats(msg.stats) };
+    }
+    if (Array.isArray(msg.history)) patch.history = TAUtil.sanitizeHistory(msg.history, HISTORY_MAX);
+    if (Object.keys(patch).length) await chrome.storage.local.set(patch);
+  });
+}
 
 function handleClaim(msg) {
   return enqueue(async () => {
@@ -241,6 +295,10 @@ function handleInProgress(msg) {
     // Au reload de l'inventaire, la page renvoie brievement 0 drop : on ignore ce vidage
     // transitoire tant qu'on a eu une liste non vide il y a moins de 6 min.
     if (list.length === 0 && s.inProgressTs && now - s.inProgressTs < 6 * 60 * 1000) return;
+    // Liste identique : on ne met a jour que la date du releve, sans reecrire 'stats' pour rien
+    // (chaque ecriture fait re-rendre le popup ouvert).
+    const same = JSON.stringify(list) === JSON.stringify(s.inProgress || []);
+    if (same && list.length && s.inProgressTs && now - s.inProgressTs < 5 * 60 * 1000) return;
     s.inProgress = list;
     if (list.length) s.inProgressTs = now;
     await chrome.storage.local.set({ stats: s });

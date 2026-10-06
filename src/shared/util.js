@@ -7,7 +7,7 @@
     const en = String(lang || '').toLowerCase().startsWith('en');
     const L = en
       ? { never: 'never', now: 'just now', min: (m) => `${m} min ago`, h: (h) => `${h} h ago`, d: (d) => `${d} d ago` }
-      : { never: 'jamais', now: 'a l instant', min: (m) => `il y a ${m} min`, h: (h) => `il y a ${h} h`, d: (d) => `il y a ${d} j` };
+      : { never: 'jamais', now: 'à l’instant', min: (m) => `il y a ${m} min`, h: (h) => `il y a ${h} h`, d: (d) => `il y a ${d} j` };
     if (ts == null) return L.never;
     const s = Math.max(0, Math.floor((now - ts) / 1000));
     if (s < 60) return L.now;
@@ -193,10 +193,118 @@
     return state === 'offline' || state === 'stalled' || state === 'unreachable';
   }
 
+  // Page inventaire des drops ? Segment EXACT : une chaine nommee "dropsquad" commence aussi
+  // par "/drops" et ne doit ni etre rechargee toutes les 3 min ni cliquee par sous-chaine.
+  function isInventoryPath(pathname) {
+    return /^\/drops(\/|$)/i.test(String(pathname || ''));
+  }
+
+  // Slug de chaine a partir d'une saisie libre ("maChaine", "twitch.tv/maChaine",
+  // "https://www.twitch.tv/maChaine/videos") -> "machaine". Renvoie '' quand la saisie ne
+  // designe pas une chaine Twitch : autre site, chemin reserve (reserved), caracteres interdits.
+  // Sert a l'auto-switch : on compare des slugs, jamais des prefixes d'URL (casse, www, slash).
+  function channelSlug(input, reserved) {
+    let s = String(input == null ? '' : input).trim();
+    if (!s) return '';
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) {
+      // Pas de schema : un nom de chaine nu, ou un domaine tape sans https.
+      s = /^[\w-]+$/.test(s) ? 'https://www.twitch.tv/' + s : 'https://' + s.replace(/^\/+/, '');
+    }
+    let u;
+    try { u = new URL(s); } catch (e) { return ''; }
+    if (!/^((www|m)\.)?twitch\.tv$/i.test(u.hostname)) return '';
+    const seg = (u.pathname.split('/')[1] || '').toLowerCase();
+    if (!/^[a-z0-9_]{1,25}$/.test(seg)) return '';
+    if ((reserved || []).includes(seg)) return '';
+    return seg;
+  }
+
+  // Lit un compteur affiche par Twitch : "1 234", "1,234", "12 345", "12,3 k", "1.2K", "3 M".
+  // exact = false quand l'affichage est abrege (k / M) : un ecart de quelques points n'y est
+  // pas mesurable ("12,3 k" avant et apres un coffre de 50). null si ce n'est pas un nombre.
+  function parseCount(text) {
+    const s = String(text == null ? '' : text).replace(/[\s\u00a0\u202f]/g, '').toLowerCase();
+    const m = s.match(/^(\d+(?:[.,]\d+)*)(k|m)?$/);
+    if (!m) return null;
+    if (!m[2]) return { value: parseInt(m[1].replace(/[.,]/g, ''), 10), exact: true };
+    // Avec un suffixe, le separateur est decimal : "12,3k" et "12.3k" valent 12 300.
+    const n = parseFloat(m[1].replace(',', '.'));
+    return Number.isFinite(n) ? { value: Math.round(n * (m[2] === 'k' ? 1e3 : 1e6)), exact: false } : null;
+  }
+
+  // --- Import d'une sauvegarde : liste blanche des cles ET des valeurs ---------------------
+  // Un fichier bricole (ou partage par un ami) ne doit rien pouvoir poser d'autre que des
+  // reglages valides : pas d'URL arbitraire pour l'auto-switch, pas d'adresse d'envoi d'erreurs
+  // (errorEndpoint n'est jamais importable), pas de type inattendu qui casserait le rendu.
+  const BOOL_SETTINGS = ['enabled', 'points', 'drops', 'reload', 'lowQuality', 'antiAfk',
+    'muteBackground', 'keepAlive', 'autoInventory', 'notifications', 'autoSwitch', 'tracker'];
+  const TTL_MAX_MIN = 525600;   // un an : au-dela, la valeur n'a pas de sens
+  function sanitizeSettings(input, reserved) {
+    const out = {};
+    if (!input || typeof input !== 'object') return out;
+    BOOL_SETTINGS.forEach((k) => { if (typeof input[k] === 'boolean') out[k] = input[k]; });
+    if (input.lang === 'fr' || input.lang === 'en') out.lang = input.lang;
+    const ttl = input.historyTtlMin;
+    if ((typeof ttl === 'number' && Number.isFinite(ttl)) || (typeof ttl === 'string' && /^\d+$/.test(ttl))) {
+      const n = Math.floor(Number(ttl));
+      if (n >= 0 && n <= TTL_MAX_MIN) out.historyTtlMin = n;
+    }
+    if (typeof input.autoSwitchUrl === 'string') {
+      // Vide = "pas de chaine de repli" (choix explicite). Invalide = ignore : on ne remplace pas
+      // une chaine deja reglee par rien.
+      if (!input.autoSwitchUrl.trim()) out.autoSwitchUrl = '';
+      else {
+        const slug = channelSlug(input.autoSwitchUrl, reserved);
+        if (slug) out.autoSwitchUrl = 'https://www.twitch.tv/' + slug;
+      }
+    }
+    return out;
+  }
+
+  // Compteurs importes : nombres positifs seulement. Les drops en cours et les battements des
+  // onglets ne viennent jamais du fichier : ils decrivent CETTE machine, maintenant.
+  function sanitizeStats(input) {
+    const out = {};
+    if (!input || typeof input !== 'object') return out;
+    const num = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
+    ['pointsClaimed', 'pointsValue', 'dropsClaimed', 'watchSeconds'].forEach((k) => {
+      const v = num(input[k]); if (v != null) out[k] = v;
+    });
+    ['lastPointsClaim', 'lastDropsClaim'].forEach((k) => { if (k in input) out[k] = num(input[k]); });
+    if (input.byChannel && typeof input.byChannel === 'object') {
+      out.byChannel = {};
+      Object.keys(input.byChannel).slice(0, 500).forEach((ch) => {
+        const c = input.byChannel[ch];
+        if (!c || typeof c !== 'object' || !/^[a-z0-9_]{1,25}$/i.test(ch)) return;
+        out.byChannel[ch.toLowerCase()] = { points: num(c.points) || 0, drops: num(c.drops) || 0, seconds: num(c.seconds) || 0 };
+      });
+    }
+    return out;
+  }
+
+  // Historique importe : entrees bien formees seulement (une entree null faisait planter
+  // chaque rendu du popup), plafonne a max (200 comme le service worker).
+  function sanitizeHistory(list, max) {
+    if (!Array.isArray(list)) return [];
+    const str = (v) => (typeof v === 'string' ? v.slice(0, 200) : '');
+    return list.filter((e) => e && typeof e === 'object' && (e.type === 'drop' || e.type === 'points') &&
+      typeof e.ts === 'number' && Number.isFinite(e.ts))
+      .map((e) => {
+        const o = { type: e.type, ts: e.ts };
+        if (e.type === 'points') { o.amount = Number(e.amount) || 0; return o; }
+        o.name = str(e.name);
+        if (str(e.game)) o.game = str(e.game);
+        if (str(e.campaign)) o.campaign = str(e.campaign);
+        return o;
+      })
+      .slice(-(max || 200));
+  }
+
   const api = {
     formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle,
     cleanDropName, pruneHistory, sortDropsByEta, tabState, isTabAlert,
-    groupDropsByGame, groupHistoryByGame, gameNameFromHref
+    groupDropsByGame, groupHistoryByGame, gameNameFromHref,
+    isInventoryPath, channelSlug, parseCount, sanitizeSettings, sanitizeStats, sanitizeHistory
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TAUtil = api;

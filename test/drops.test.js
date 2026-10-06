@@ -41,7 +41,7 @@ function advance(ms) {
 function setClock(v) { clock = v; }
 
 // Charge drops.js a neuf avec un faux DOM/TA. Renvoie les leviers de pilotage.
-function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName = null, bruteMeta = false } = {}) {
+function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName = null, bruteMeta = false, textEls = [] } = {}) {
   installEnv();
 
   let reloadCount = 0;
@@ -60,7 +60,12 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
   global.location = { pathname, reload: () => { reloadCount += 1; } };
   global.document = {
     hidden: false,
-    querySelectorAll: (sel) => (hasButton && sel === '.claim') ? [btn] : []
+    // textEls : elements renvoyes pour la recherche par libelle (boutons / liens de l'inventaire).
+    querySelectorAll: (sel) => {
+      if (sel === '.claim') return hasButton ? [btn] : [];
+      if (sel === 'button, [role="button"], a') return textEls;
+      return [];
+    }
   };
   global.window = global;
   global.TAUtil = require('../src/shared/util.js');
@@ -198,6 +203,40 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
   assert.strictEqual(d.clickedEls.length, 1, 'le drop doit etre reclame malgre l echec d etiquetage');
   assert.ok(d.lastReported(), 'le claim doit etre remonte au background');
   assert.strictEqual(d.lastReported().game, '', 'sans jeu lisible, l entree part sans etiquette');
+  d.mod.stop();
+}
+
+// --- Cas 11 : une CHAINE dont le nom commence par "drops" n'est pas l'inventaire ---
+//     (avant : startsWith('/drops') la rechargeait toutes les 3 min et cliquait par sous-chaine)
+{
+  const d = loadDrops({ pathname: '/dropsquad', hasButton: false });
+  d.mod.start();
+  setClock(100000 + 10 * 60 * 1000);
+  d.refresh();
+  assert.strictEqual(d.reloadCount(), 0, '/dropsquad est une page de stream : jamais rechargee par le module drops');
+  d.mod.stop();
+}
+
+// --- Cas 12 : sur l'inventaire, seul le VRAI bouton est clique (et compte) ---
+//     Ecartes : le conteneur dont le texte inclut celui du bouton, un lien de navigation,
+//     un libelle d'etat "Claimed" (qui contient "claim").
+{
+  const fake = (tagName, text, { href = null, hasChildButton = false } = {}) => ({
+    tagName, textContent: text,
+    getAttribute: (a) => (a === 'href' ? href : ''),
+    querySelector: () => (hasChildButton ? {} : null),
+    querySelectorAll: () => [],
+    parentElement: null
+  });
+  const container = fake('DIV', 'Casque Nuit Polaire En profiter', { hasChildButton: true });
+  const link = fake('A', 'How to claim drops', { href: '/help/drops' });
+  const done = fake('BUTTON', 'Claimed');
+  const real = fake('BUTTON', 'En profiter');
+  const d = loadDrops({ pathname: '/drops/inventory', hasButton: false, textEls: [container, link, done, real] });
+  d.mod.start();
+  advance(4300);
+  advance(4300);
+  assert.deepStrictEqual(d.clickedEls, [real], 'seul le bouton "En profiter" doit etre clique');
   d.mod.stop();
 }
 
