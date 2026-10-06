@@ -50,7 +50,7 @@ Grace a la cle d'ID epinglee dans le manifest, le stockage (compteurs, historiqu
 - **Tous les selecteurs Twitch** sont centralises dans `src/content/selectors.js` : c'est le seul fichier a corriger quand Twitch change son interface.
 - **Tous les textes d'interface** sont centralises dans `src/shared/i18n.js` (dictionnaire FR / EN) : seul fichier a editer pour ajuster ou ajouter une traduction.
 - **Diagnostic** : le bouton "Tester les selecteurs" (onglet Reglages), lance sur une page Twitch, indique ce que l'extension trouve.
-- **Tests** (10 suites Node, sans dependance) : `for f in test/*.test.js; do node "$f"; done`.
+- **Tests** (11 suites Node, sans dependance) : `for f in test/*.test.js; do node "$f"; done`.
 - **Verification dans le vrai Chrome** (sans dependance, Google Chrome stable requis) : `node tools/verifier.js` rend chaque onglet du popup en FR et EN et cherche les debordements et erreurs ; `--live` lance un vrai stream twitch.tv (lecture, mise en sourdine en arriere-plan, chaine hors ligne) ; `--popup-reel` ouvre le vrai popup de la barre d'outils. Captures et rapport dans `tools/verif/<date>/` (non versionne).
 
 ## Licence

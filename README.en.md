@@ -50,7 +50,7 @@ Thanks to the ID key pinned in the manifest, storage (counters, history) is kept
 - **All Twitch selectors** are centralized in `src/content/selectors.js`: this is the only file to fix when Twitch changes its interface.
 - **UI strings** are centralized in `src/shared/i18n.js` (FR / EN dictionary): the only file to edit to adjust or add a translation.
 - **Diagnostics**: the "Test selectors" button (Settings tab), run on a Twitch page, shows what the extension finds.
-- **Tests** (10 Node suites, no dependency): `for f in test/*.test.js; do node "$f"; done`.
+- **Tests** (11 Node suites, no dependency): `for f in test/*.test.js; do node "$f"; done`.
 - **Checks in real Chrome** (no dependency, Google Chrome stable required): `node tools/verifier.js` renders every popup tab in FR and EN and looks for overflow and errors; `--live` plays a real twitch.tv stream (playback, muting in the background, offline channel); `--popup-reel` opens the real toolbar popup. Screenshots and report in `tools/verif/<date>/` (not versioned).
 
 ## License

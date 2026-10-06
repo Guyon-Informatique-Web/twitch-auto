@@ -299,7 +299,9 @@
     while ((m = numRe.exec(s1))) dates.push({ kind: 'num', a: +m[1], b: +m[2], y: +m[3], at: m.index, len: m[0].length });
     const frRe = /\b(\d{1,2})(?:er)? ([a-z]+)(?: (\d{4}))?/g;
     while ((m = frRe.exec(words))) if (MONTHS[m[2]] != null) dates.push({ kind: 'fr', day: +m[1], month: MONTHS[m[2]], y: m[3] ? +m[3] : null, at: m.index, len: m[0].length, src: words });
-    const enRe = /\b([a-z]+) (\d{1,2})(?:st|nd|rd|th)?(?: (\d{4}))?\b/g;
+    // Jamais "oct 12" dans "9 oct., 12:57" (format reel de l'inventaire Twitch en francais,
+    // releve le 06/10/2026) : un nombre suivi de ":" ou "h" est une heure, pas un jour.
+    const enRe = /\b([a-z]+) (\d{1,2})(?:st|nd|rd|th)?(?: (\d{4}))?\b(?! ?[:h] ?\d)/g;
     while ((m = enRe.exec(words))) if (MONTHS[m[1]] != null) dates.push({ kind: 'en', day: +m[2], month: MONTHS[m[1]], y: m[3] ? +m[3] : null, at: m.index, len: m[0].length, src: words });
     if (dates.length > 1) return null;              // plusieurs dates : on ne choisit pas
     if (!dates.length) {

@@ -191,6 +191,17 @@ assert.strictEqual(parseEndDate('12/11/2026', NOW6, 'en-US'), at(2026, 12, 11, 2
 assert.strictEqual(parseEndDate('12/11/2026', NOW6, 'fr-FR'), at(2026, 11, 12, 23, 59), 'jj/mm en francais');
 assert.strictEqual(parseEndDate('Date de début : 3 oct. - Date de fin : 14 oct.', NOW6, 'fr'), null, 'deux dates : on ne choisit pas');
 assert.strictEqual(parseEndDate('Date de fin : 30 sept.', NOW6, 'fr'), null, 'passee de moins d un mois : campagne finie, pas l an prochain');
+// Formats REELS de l'inventaire connecte (releves le 06/10/2026) : jour abrege, virgule apres le
+// mois, heure collee, fuseau, espace insecable avant les deux-points. "oct., 12:57" ne doit pas
+// donner une seconde date "oct 12" (avant la 1.13.1, aucune date reelle n'etait lue).
+{
+  const NB = String.fromCharCode(0xa0);
+  assert.strictEqual(parseEndDate('Date de fin' + NB + ': ven. 9 oct., 12:57 UTC+2', NOW6, 'fr-FR'), at(2026, 10, 9, 12, 57));
+  assert.strictEqual(parseEndDate('Date de fin' + NB + ': sam. 10 oct., 09:59 UTC+2', NOW6, 'fr-FR'), at(2026, 10, 10, 9, 59));
+  assert.strictEqual(parseEndDate('Date de fin' + NB + ': mar. 13 oct., 18:00 UTC+2', NOW6, 'fr-FR'), at(2026, 10, 13, 18, 0));
+  assert.strictEqual(parseEndDate('Date de fin' + NB + ': lun. 5 oct., 01:58 UTC+2', NOW6, 'fr-FR'), null, 'campagne finie la veille');
+  assert.strictEqual(parseEndDate('Ends Fri, Oct 9, 12:57 PM GMT+2', NOW6, 'en-US'), at(2026, 10, 9, 12, 57));
+}
 assert.strictEqual(parseEndDate('Date de fin : 31 nov. 2026', NOW6, 'fr'), null, 'date impossible');
 assert.strictEqual(parseEndDate('Date de fin : 14 oct. 2026, reste 2 h 00 min', NOW6, 'fr'), at(2026, 10, 14, 23, 59),
   'une duree n est pas une heure');

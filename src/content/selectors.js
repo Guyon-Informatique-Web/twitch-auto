@@ -99,7 +99,12 @@ TA.selectors = {
   // que sous le titre d'un stream. '/directory/category/' est la forme actuelle,
   // '/directory/game/' l'ancienne : on accepte les deux (Twitch a deja fait l'aller-retour).
   // Si plus rien ne matche, le regroupement disparait et la liste de drops reste intacte.
+  // Mesure du 06/10/2026 (inventaire connecte) : dans une carte de campagne en cours, ce lien est
+  // "chaine en live participante" ; une carte de campagne terminee n'en a pas.
   gameLink: ['a[href*="/directory/category/"]', 'a[href*="/directory/game/"]'],
+  // Lien du nom de la campagne (/drops/campaigns?dropID=...) : un par carte. Un ancetre qui en
+  // contient plusieurs regroupe plusieurs campagnes : la recherche du jeu s'arrete avant lui.
+  campaignLink: ['a[href*="/drops/campaigns"]'],
   // Libelles a ECARTER quand on cherche le nom d'une campagne dans son bloc : etats, dates et
   // mentions de service se presentent comme du texte ordinaire et seraient pris pour un nom
   // ("En cours", "Date de fin : ..."). FR + EN, comme les autres listes de ce fichier.

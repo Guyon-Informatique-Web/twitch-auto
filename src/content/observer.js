@@ -125,17 +125,27 @@ TA.dom = (function () {
   }
 
   // Remonte depuis un element (barre de progression, bouton de reclamation) jusqu'au bloc de
-  // campagne : le premier ancetre qui contient un lien vers l'annuaire du jeu. Le nom de
-  // campagne est le premier titre de ce bloc qui n'est ni le jeu ni un texte de progression ;
-  // les vrais titres sont testes avant les paragraphes CoreText (moins surs).
+  // campagne : le premier ancetre qui contient un lien vers l'annuaire du jeu, SANS sortir de la
+  // carte de la campagne. Un ancetre qui contient plusieurs liens de campagne (/drops/campaigns)
+  // regroupe plusieurs cartes : on s'arrete alors a la carte, jeu inconnu, mais avec son nom et
+  // sa date de fin. Mesure du 06/10/2026 sur un inventaire connecte : la carte d'une campagne
+  // terminee n'a pas de lien de jeu, et la remontee prenait celui de la carte voisine (drops
+  // Rust ranges sous EVE Online, avec la date de fin d'EVE).
+  // Le nom de campagne est le premier titre du bloc qui n'est ni le jeu ni un texte de
+  // progression ; les vrais titres sont testes avant les paragraphes CoreText (moins surs).
   // Renvoie des chaines vides quand on ne conclut pas : l'affichage retombe alors sur une
   // liste plate, il ne se casse jamais.
   function findCampaign(fromEl) {
     const sel = ((TA.selectors && TA.selectors.gameLink) || []).join(',');
+    const campSel = ((TA.selectors && TA.selectors.campaignLink) || []).join(',');
     const none = { game: '', campaign: '', slug: '', endsAt: null, block: null };
     if (!sel) return none;
     let el = fromEl;
+    let card = null;      // plus grand ancetre deja visite qui ne deborde pas sur une autre carte
     for (let i = 0; i < 10 && el; i++) {
+      if (card && campSel && countIn(el, campSel) > 1) {
+        return { game: '', campaign: campaignNameIn(card, ''), slug: '', endsAt: campaignEndIn(card), block: card };
+      }
       let link = null;
       try { link = el.querySelector ? el.querySelector(sel) : null; } catch (e) { link = null; }
       if (link) {
@@ -148,9 +158,14 @@ TA.dom = (function () {
           block: el
         };
       }
+      card = el;
       el = el.parentElement;
     }
     return none;
+  }
+
+  function countIn(el, sel) {
+    try { return el.querySelectorAll ? el.querySelectorAll(sel).length : 0; } catch (e) { return 0; }
   }
 
   // Date de fin de la campagne : premier texte court du bloc qui porte un indice ("Date de fin",

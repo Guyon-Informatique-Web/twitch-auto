@@ -44,19 +44,20 @@ window.TA = window.TA || {};
   function diagnose() {
     const S = TA.selectors;
     const has = (cands) => !!TA.dom.findFirst(cands);
-    // Sur l'inventaire : combien de campagnes ont une date de fin lisible (fonction "fin de
-    // campagne", verifiable seulement connecte).
+    // Sur l'inventaire : combien de campagnes EN COURS ont une date de fin lisible (fonction
+    // "fin de campagne", verifiable seulement connecte). Meme lecture que le releve du tracker,
+    // donc les memes campagnes que le popup : les campagnes terminees n'y entrent pas.
     let camps = 0;
     let ends = 0;
-    if (TAUtil.isInventoryPath(location.pathname)) {
+    const tracker = registry.tracker;
+    if (TAUtil.isInventoryPath(location.pathname) && tracker && typeof tracker.collect === 'function') {
       const seen = new Set();
-      document.querySelectorAll(S.dropProgress.join(',')).forEach((bar) => {
-        const m = TA.dom.findCampaign(bar);
-        const k = m.game + '|' + m.campaign;
+      tracker.collect().forEach((d) => {
+        const k = d.game + '|' + d.campaign;
         if (seen.has(k)) return;
         seen.add(k);
         camps += 1;
-        if (m.endsAt) ends += 1;
+        if (d.campEnds) ends += 1;
       });
     }
     return {
