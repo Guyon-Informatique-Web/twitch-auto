@@ -25,6 +25,11 @@ TA.report = function (kind, payload) {
   safeSend({ type: 'claim', kind, ...(payload || {}) });
 };
 
+// Signale un drop que Twitch refuse de donner (compte de jeu a lier) : notification une fois.
+TA.dropRefused = function (payload) {
+  safeSend({ type: 'dropRefused', ...(payload || {}) });
+};
+
 // Demande au background de recharger l'onglet inventaire des drops (throttle cote SW).
 TA.reloadInventory = function () {
   safeSend({ type: 'inventoryReload' });

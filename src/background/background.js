@@ -224,6 +224,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'watch') { handleWatch(msg, sender); return false; }
   if (msg.type === 'inprogress') { handleInProgress(msg); return false; }
   if (msg.type === 'inventoryReload') { reloadInventoryTabs(); return false; }
+  if (msg.type === 'dropRefused') { notifyDropRefused(msg); return false; }
   if (msg.type === 'pruneHistory') { pruneHistoryNow(); return false; }
   // Reset et import des compteurs : demandes par le popup SEUL, et ecrites dans la meme file
   // que les claims (sinon un battement d'onglet concurrent pouvait ressusciter les compteurs).
@@ -447,6 +448,20 @@ function notify(title, message) {
     title,
     message
   });
+}
+
+// Drop refuse par Twitch faute de compte de jeu lie : le script de contenu n'envoie ce message
+// qu'une fois par drop et par onglet. Notification soumise au meme reglage que les drops reclames.
+async function notifyDropRefused(msg) {
+  try {
+    const { settings } = await chrome.storage.local.get('settings');
+    if (!settings || !settings.notifications) return;
+    const lang = TAi18n.resolveLang(settings);
+    const name = typeof msg.name === 'string' ? msg.name.slice(0, 80) : '';
+    const where = typeof msg.game === 'string' && msg.game ? msg.game.slice(0, 60) : '';
+    notify(TAi18n.t(lang, 'notif.dropRefused.title'),
+      TAi18n.t(lang, 'notif.dropRefused.body', { name: name || '?', game: where || 'Twitch' }));
+  } catch (e) { /* notification non essentielle */ }
 }
 
 async function handleError(msg, sender) {

@@ -11,7 +11,7 @@ Chrome extension (Manifest V3) that automates Twitch: auto-claim of **channel po
 ## Features
 
 - **Channel points**: claims bonus chests automatically (the actual gain is counted).
-- **Drops**: auto-claim via the inventory AND via the banner that appears on a stream.
+- **Drops**: auto-claim via the inventory AND via the banner that appears on a stream. A drop Twitch refuses (game account to link) is neither counted nor clicked in a loop: retried every 30 min, with a notification telling you to link the account.
 - **Multi-tab farming**: drops progress on ALL open tabs in parallel (not only the active one), and background videos no longer pause.
 - **Auto reload** of the player on error (with an anti-loop guard).
 - **Min quality** (160p) on background tabs, even for a stream already playing (live switch of the player), and your quality comes back when you return to the tab, including a tab reloaded or opened in the background meanwhile (a video you pause is never restarted); **mute** of background tabs (a tab you muted yourself stays muted), **anti-AFK** ("still watching" / mature content gates), **anti-pause**.

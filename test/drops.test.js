@@ -41,8 +41,17 @@ function advance(ms) {
 function setClock(v) { clock = v; }
 
 // Charge drops.js a neuf avec un faux DOM/TA. Renvoie les leviers de pilotage.
-function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName = null, bruteMeta = false, textEls = [] } = {}) {
+function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName = null, bruteMeta = false, textEls = [],
+  bodyText = '', onClick = null, session = null, keepClock = false } = {}) {
+  const savedClock = clock;
   installEnv();
+  if (keepClock) clock = savedClock;   // "rechargement" de la page : l'heure continue
+  // sessionStorage partage entre deux chargements = rechargement du meme onglet.
+  const store = session || {};
+  global.sessionStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
+  const body = { innerText: bodyText };
+  const refusedSent = [];
+  const warns = [];
 
   let reloadCount = 0;
   let inventoryReloadCount = 0;
@@ -60,6 +69,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
   global.location = { pathname, reload: () => { reloadCount += 1; } };
   global.document = {
     hidden: false,
+    body,
     // textEls : elements renvoyes pour la recherche par libelle (boutons / liens de l'inventaire).
     querySelectorAll: (sel) => {
       if (sel === '.claim') return hasButton ? [btn] : [];
@@ -75,7 +85,8 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
       dropClaimTextHints: ['en profiter'],
       dropClaimExact: ['en profiter']
     },
-    log: { info() {}, warn() {}, error() {} },
+    log: { info() {}, warn(m, msg) { warns.push(msg); }, error() {} },
+    dropRefused: (payload) => { refusedSent.push(payload); },
     report: (kind, payload) => { reportedNames.push(payload && payload.name); reported.push(payload || {}); },
     reloadInventory: () => { inventoryReloadCount += 1; }
   };
@@ -84,7 +95,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
   global.TA.dom = {
     subscribe: (cb) => { tickCb = cb; cb(); return () => {}; },
     isClickable: () => true,
-    click: (el) => { clickedEls.push(el); return true; },
+    click: (el) => { clickedEls.push(el); if (onClick) onClick(body); return true; },
     currentChannel: () => 'chan',
     // Etiquetage jeu / campagne (v1.12) : bruteMeta simule une page ou la lecture echoue.
     findCampaign: () => { if (bruteMeta) throw new Error('DOM inattendu'); return { game: 'Rust', campaign: 'Round 21' }; },
@@ -104,7 +115,12 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
     reloadCount: () => reloadCount,
     inventoryReloadCount: () => inventoryReloadCount,
     lastReportedName: () => reportedNames[reportedNames.length - 1],
-    lastReported: () => reported[reported.length - 1]
+    lastReported: () => reported[reported.length - 1],
+    reportedCount: () => reported.length,
+    refusedSent,
+    warns,
+    body,
+    store
   };
 }
 
@@ -154,6 +170,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
 {
   const d = loadDrops({ pathname: '/somestreamer', hasButton: true });
   d.mod.start();                       // reclame le drop via le bandeau du stream
+  advance(4100);                       // le clic n est compte qu apres la verification du refus (4 s)
   assert.strictEqual(d.clickedEls.length, 1, 'le drop du bandeau stream doit etre reclame');
   assert.strictEqual(d.inventoryReloadCount(), 1, 'un claim sur un stream doit demander le rechargement de l inventaire');
   assert.strictEqual(d.reloadCount(), 0, 'on ne recharge pas la page du stream elle-meme');
@@ -173,6 +190,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
 {
   const d = loadDrops({ pathname: '/somestreamer', hasButton: true, cardName: 'Récupérer Shooting Star' });
   d.mod.start();
+  advance(4100);                       // le clic n est compte qu apres la verification du refus (4 s)
   assert.strictEqual(d.lastReportedName(), 'Shooting Star', 'le verbe Recuperer doit etre retire du nom du drop');
   d.mod.stop();
 }
@@ -181,6 +199,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
 {
   const d = loadDrops({ pathname: '/drops/inventory', hasButton: true });
   d.mod.start();
+  advance(4100);                       // le clic n est compte qu apres la verification du refus (4 s)
   assert.strictEqual(d.lastReported().game, 'Rust', 'le jeu doit accompagner le claim');
   assert.strictEqual(d.lastReported().campaign, 'Round 21', 'la campagne doit accompagner le claim');
   d.mod.stop();
@@ -190,6 +209,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
 {
   const d = loadDrops({ pathname: '/somestreamer', hasButton: true });
   d.mod.start();
+  advance(4100);                       // le clic n est compte qu apres la verification du refus (4 s)
   assert.strictEqual(d.lastReported().game, 'Rust');
   assert.strictEqual(d.lastReported().campaign, '', 'aucune campagne ne doit etre inventee hors inventaire');
   d.mod.stop();
@@ -200,6 +220,7 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
 {
   const d = loadDrops({ pathname: '/drops/inventory', hasButton: true, bruteMeta: true });
   d.mod.start();
+  advance(4100);                       // le clic n est compte qu apres la verification du refus (4 s)
   assert.strictEqual(d.clickedEls.length, 1, 'le drop doit etre reclame malgre l echec d etiquetage');
   assert.ok(d.lastReported(), 'le claim doit etre remonte au background');
   assert.strictEqual(d.lastReported().game, '', 'sans jeu lisible, l entree part sans etiquette');
@@ -237,6 +258,90 @@ function loadDrops({ pathname = '/drops/inventory', hasButton = true, cardName =
   advance(4300);
   advance(4300);
   assert.deepStrictEqual(d.clickedEls, [real], 'seul le bouton "En profiter" doit etre clique');
+  d.mod.stop();
+}
+
+// --- Cas 13 (REGRESSION 07/10/2026) : Twitch refuse le drop (compte de jeu a lier) ---
+//     Avant : chaque rechargement de l'inventaire recliquait "En profiter" et comptait un drop.
+{
+  const LINK = 'Une erreur est survenue. Liez vos comptes de jeu à votre compte Twitch pour recevoir cette récompense en jeu.';
+  const session = {};
+  const refuse = (body) => { body.innerText = 'Inventaire ' + LINK; };
+  let d = loadDrops({ cardName: 'Drops 15 Min Reward', onClick: refuse, session });
+  d.mod.start();
+  assert.strictEqual(d.clickedEls.length, 1, 'le drop est essaye une fois');
+  advance(4100);
+  assert.strictEqual(d.reportedCount(), 0, 'un drop refuse ne doit pas etre compte comme reclame');
+  assert.strictEqual(d.refusedSent.length, 1, 'le refus est signale au service worker');
+  assert.strictEqual(d.refusedSent[0].name, 'Drops 15 Min Reward');
+  assert.ok(d.warns.some((w) => /compte de jeu a lier/.test(w)), 'le refus est journalise');
+  d.mod.stop();
+
+  // Rechargement de l'inventaire (meme onglet) : nouveau bouton, meme drop -> pas recliqué.
+  d = loadDrops({ cardName: 'Drops 15 Min Reward', onClick: refuse, session, keepClock: true, bodyText: 'Inventaire' });
+  d.mod.start();
+  advance(10000);
+  assert.strictEqual(d.clickedEls.length, 0, 'un drop refuse ne doit pas etre reclique apres un rechargement');
+  d.mod.stop();
+
+  // 31 min plus tard : nouvel essai (le compte a peut-etre ete lie), sans seconde notification.
+  advance(31 * 60 * 1000);
+  d = loadDrops({ cardName: 'Drops 15 Min Reward', onClick: refuse, session, keepClock: true, bodyText: 'Inventaire' });
+  d.mod.start();
+  assert.strictEqual(d.clickedEls.length, 1, 'apres 30 min, le drop est reessaye');
+  advance(4100);
+  assert.strictEqual(d.reportedCount(), 0);
+  assert.strictEqual(d.refusedSent.length, 0, 'une seule notification par drop et par onglet');
+  d.mod.stop();
+
+  // Compte lie entre-temps : l'essai suivant passe et compte.
+  advance(31 * 60 * 1000);
+  d = loadDrops({ cardName: 'Drops 15 Min Reward', session, keepClock: true, bodyText: 'Inventaire' });
+  d.mod.start();
+  advance(4100);
+  assert.strictEqual(d.reportedCount(), 1, 'une fois le compte lie, le drop est reclame et compte');
+  d.mod.stop();
+}
+
+// --- Cas 14 : un bandeau de refus DEJA affiche avant le clic n'est pas attribue au drop ---
+{
+  const LINK = 'Liez vos comptes de jeu à votre compte Twitch pour recevoir cette récompense en jeu.';
+  const d = loadDrops({ cardName: 'Casque', bodyText: LINK });
+  d.mod.start();
+  advance(4100);
+  assert.strictEqual(d.reportedCount(), 1, 'un message laisse par un clic precedent ne vaut pas refus');
+  d.mod.stop();
+}
+
+// --- Cas 15 : arreter le module juste apres un clic ne perd pas le drop ---
+{
+  const d = loadDrops({ cardName: 'Casque' });
+  d.mod.start();
+  d.mod.stop();
+  assert.strictEqual(d.reportedCount(), 1, 'le clic deja fait reste compte a l arret du module');
+}
+
+// --- Cas 16 : detection du message de refus (FR / EN), par comptage ---
+{
+  const U = require('../src/shared/util.js');
+  const fr = U.claimRefusalCounts('Une erreur est survenue. Liez vos comptes de jeu à votre compte Twitch pour recevoir cette récompense en jeu.');
+  assert.deepStrictEqual(fr, { link: 1, error: 1 });
+  assert.strictEqual(U.claimRefusal({ link: 0, error: 0 }, fr), 'link');
+  assert.strictEqual(U.claimRefusal({ link: 0, error: 0 }, U.claimRefusalCounts('Something went wrong.')), 'error');
+  assert.strictEqual(U.claimRefusal({ link: 0, error: 0 }, U.claimRefusalCounts('Link your game accounts to your Twitch account to receive this reward in-game.')), 'link');
+  assert.strictEqual(U.claimRefusal(fr, fr), '', 'meme nombre avant et apres : pas de nouveau refus');
+  assert.deepStrictEqual(U.claimRefusalCounts(''), { link: 0, error: 0 });
+  assert.strictEqual(U.claimRefusal({ link: 0, error: 0 }, U.claimRefusalCounts('Drops 15 Min Reward En profiter Se connecter')), '');
+}
+
+// --- Cas 17 : un bandeau de refus qui arrive tard (2 s apres le clic) est quand meme vu ---
+{
+  const late = (body) => { setTimeout(() => { body.innerText = 'Liez vos comptes de jeu à votre compte Twitch'; }, 2000); };
+  const d = loadDrops({ cardName: 'Casque', onClick: late });
+  d.mod.start();
+  advance(4100);
+  assert.strictEqual(d.reportedCount(), 0, 'un refus affiche apres 2 s ne doit pas etre compte comme reclame');
+  assert.strictEqual(d.refusedSent.length, 1);
   d.mod.stop();
 }
 

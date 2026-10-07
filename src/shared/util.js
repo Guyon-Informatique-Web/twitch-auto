@@ -84,6 +84,27 @@
     return cleaned || s; // si le strip vide tout (verbe seul), on garde l'original
   }
 
+  // Message de refus que Twitch affiche apres un clic sur "En profiter" (bandeau rouge en bas de
+  // page). Vu le 07/10/2026 : "Une erreur est survenue. Liez vos comptes de jeu a votre compte
+  // Twitch pour recevoir cette recompense en jeu." On COMPTE les occurrences : le texte de la page
+  // est lu avant et apres le clic, et seul un message apparu entre les deux vaut refus (un bandeau
+  // laisse par le clic precedent ne doit pas etre attribue au drop suivant).
+  // link = compte de jeu a lier (rien ne passera tant que l'utilisateur ne l'a pas fait),
+  // error = echec generique.
+  const REFUSAL_LINK = /li(?:ez|er) (?:vos|votre|ton|tes) comptes? de jeu|link (?:your )?(?:game )?accounts?|connect (?:your )?game accounts?/g;
+  const REFUSAL_ERROR = /une erreur (?:est survenue|s.est produite)|an error (?:has )?occurred|something went wrong/g;
+  function claimRefusalCounts(text) {
+    const t = String(text == null ? '' : text).toLowerCase();
+    return { link: (t.match(REFUSAL_LINK) || []).length, error: (t.match(REFUSAL_ERROR) || []).length };
+  }
+
+  // Refus apparu entre deux lectures : 'link', 'error' ou ''.
+  function claimRefusal(before, after) {
+    if (after.link > before.link) return 'link';
+    if (after.error > before.error) return 'error';
+    return '';
+  }
+
   // Retire de l'historique les entrees plus vieilles que ttlMin minutes.
   // ttlMin vide / 0 / non numerique -> aucune purge (on renvoie l'historique tel quel).
   // Les entrees sans timestamp valide sont conservees (on ne peut juger leur age).
@@ -495,7 +516,7 @@
 
   const api = {
     formatRelativeTime, formatRelativeFuture, formatCompact, compareVersions, shouldReload, makeThrottle,
-    cleanDropName, pruneHistory, sortDropsByEta, tabState, isTabAlert,
+    cleanDropName, claimRefusalCounts, claimRefusal, pruneHistory, sortDropsByEta, tabState, isTabAlert,
     groupDropsByGame, gameNameFromHref, gameSlugFromHref, participateUrl,
     dayKey, groupHistoryByDay, parseEndDate, campaignRemainingMin, nextFallback,
     dropKey, trackProgress, STUCK_MS,
