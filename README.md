@@ -11,7 +11,7 @@ Extension Chrome (Manifest V3) qui automatise Twitch : auto-claim des **points d
 ## Fonctionnalites
 
 - **Points de chaine** : reclame les coffres bonus automatiquement (le gain reel est comptabilise).
-- **Drops** : reclamation auto via l'inventaire ET via le bandeau qui apparait sur un stream. Un drop que Twitch refuse (compte de jeu a lier) n'est ni compte ni reclique en boucle : nouvel essai toutes les 30 min et une notification pour lier le compte.
+- **Drops** : reclamation auto via l'inventaire ET via le bandeau qui apparait sur un stream. Un drop que Twitch refuse (compte de jeu a lier) n'est ni compte ni reclique en boucle, pas plus qu'un drop dont la recuperation echoue : aucun drop en erreur n'entre dans les compteurs ni dans l'historique, et il n'est pas reessaye avant 60 min (reglage "Drop en erreur : nouvel essai apres (min)", de 1 a 1440 ; delai commun a tous les onglets Twitch ; la remise a zero l'efface). Une notification dit de lier le compte de jeu.
 - **Farming multi-onglets** : les drops progressent sur TOUS les onglets ouverts en parallele (pas seulement l'onglet actif), et les videos de fond ne se mettent plus en pause.
 - **Reload auto** du player en cas d'erreur (avec garde anti-boucle).
 - **Qualite mini** (160p) sur les onglets en arriere-plan, meme pour un stream deja lance (bascule a chaud du lecteur), et ta qualite revient quand tu reviens sur l'onglet, y compris pour un onglet recharge ou ouvert en fond entre-temps (une video que tu mets en pause n'est jamais relancee) ; **mute** des onglets en arriere-plan (un onglet coupe a la main le reste), **anti-AFK** (gates "toujours la" / contenu sensible), **anti-pause**.

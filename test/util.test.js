@@ -1,7 +1,8 @@
 const assert = require('assert');
 const { formatRelativeTime, formatCompact, compareVersions, shouldReload, makeThrottle, cleanDropName, pruneHistory,
   isInventoryPath, channelSlug, parseCount, sanitizeSettings, sanitizeStats, sanitizeHistory,
-  parseEndDate, campaignRemainingMin, nextFallback, trackProgress, formatRelativeFuture, STUCK_MS } = require('../src/shared/util.js');
+  parseEndDate, campaignRemainingMin, nextFallback, trackProgress, formatRelativeFuture, STUCK_MS,
+  dropRetryMin, claimRefusal, claimRefusalCounts } = require('../src/shared/util.js');
 const { t: tr, resolveLang, normLang, detectLang } = require('../src/shared/i18n.js');
 
 // formatRelativeTime(ts, now) -> francais par defaut (retrocompatible)
@@ -305,5 +306,21 @@ assert.strictEqual(nextFallback(null, 'a'), '');
   assert.deepStrictEqual(r.stuck, []);
   assert.strictEqual(r.progress['EFT|S3|Casque'].since, 2 * STUCK_MS);
 }
+
+// dropRetryMin : delai avant de reessayer un drop en erreur, 60 min par defaut, 1 a 1440
+assert.strictEqual(dropRetryMin(undefined), 60);
+assert.strictEqual(dropRetryMin({}), 60);
+assert.strictEqual(dropRetryMin({ dropRetryMin: 15 }), 15);
+assert.strictEqual(dropRetryMin({ dropRetryMin: '30' }), 30);
+assert.strictEqual(dropRetryMin({ dropRetryMin: 0 }), 60, '0 n est pas un delai : defaut');
+assert.strictEqual(dropRetryMin({ dropRetryMin: 1441 }), 60);
+assert.strictEqual(dropRetryMin({ dropRetryMin: 2.5 }), 60);
+assert.strictEqual(dropRetryMin({ dropRetryMin: 'abc' }), 60);
+assert.deepStrictEqual(sanitizeSettings({ dropRetryMin: '45' }), { dropRetryMin: 45 });
+assert.deepStrictEqual(sanitizeSettings({ dropRetryMin: 0 }), {}, 'hors bornes : ignore a l import');
+assert.deepStrictEqual(sanitizeSettings({ dropRetryMin: 99999 }), {});
+// Echecs generiques de recuperation (FR / EN) : refus 'error', donc non comptes
+['Impossible de récupérer cette récompense.', 'Impossible de réclamer le drop', 'Unable to claim reward', "Couldn't claim this drop"]
+  .forEach((m) => assert.strictEqual(claimRefusal({ link: 0, error: 0 }, claimRefusalCounts(m)), 'error', m));
 
 console.log('OK util + i18n');

@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   autoReloadTabs: true,   // apres une mise a jour, recharge les onglets Twitch en arriere-plan
   autoWatch: false,       // drop bloque -> ouvre une chaine participante en arriere-plan (opt-in)
   historyTtlMin: 0,       // vidage auto de l'historique apres X min (0 / vide = jamais)
+  dropRetryMin: 60,       // drop en erreur (refuse par Twitch) : pas de nouvel essai avant X min
   errorEndpoint: ''       // URL log-error de giw-site-web (a renseigner ; vide = pas d'envoi)
 };
 const DEFAULT_STATS = {
@@ -276,7 +277,9 @@ function resetStats() {
       },
       history: []
     });
-    await chrome.storage.local.remove('lastError');
+    // Les drops en erreur repartent aussi de zero : apres avoir lie son compte de jeu, la remise
+    // a zero permet un nouvel essai sans attendre le delai.
+    await chrome.storage.local.remove(['lastError', 'dropsRefused']);
   });
 }
 
@@ -451,7 +454,7 @@ function notify(title, message) {
 }
 
 // Drop refuse par Twitch faute de compte de jeu lie : le script de contenu n'envoie ce message
-// qu'une fois par drop et par onglet. Notification soumise au meme reglage que les drops reclames.
+// qu'une fois par drop (memoire commune aux onglets). Notification soumise au meme reglage que les drops reclames.
 async function notifyDropRefused(msg) {
   try {
     const { settings } = await chrome.storage.local.get('settings');
@@ -459,8 +462,9 @@ async function notifyDropRefused(msg) {
     const lang = TAi18n.resolveLang(settings);
     const name = typeof msg.name === 'string' ? msg.name.slice(0, 80) : '';
     const where = typeof msg.game === 'string' && msg.game ? msg.game.slice(0, 60) : '';
+    const n = TAUtil.dropRetryMin({ dropRetryMin: msg.retryMin != null ? msg.retryMin : settings.dropRetryMin });
     notify(TAi18n.t(lang, 'notif.dropRefused.title'),
-      TAi18n.t(lang, 'notif.dropRefused.body', { name: name || '?', game: where || 'Twitch' }));
+      TAi18n.t(lang, 'notif.dropRefused.body', { name: name || '?', game: where || 'Twitch', n }));
   } catch (e) { /* notification non essentielle */ }
 }
 

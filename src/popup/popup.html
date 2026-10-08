@@ -141,6 +141,12 @@
       <input id="history-ttl" type="number" min="0" step="1" inputmode="numeric" data-i18n-ph="ui.historyTtlPh" placeholder="0 = jamais">
     </div>
 
+    <!-- Drop refuse par Twitch ou en echec : jamais compte, et pas reessaye avant ce delai. -->
+    <div class="as-row hist-ttl-row">
+      <label for="drop-retry" data-i18n="ui.dropRetry">Drop en erreur : nouvel essai après (min)</label>
+      <input id="drop-retry" type="number" min="1" max="1440" step="1" inputmode="numeric" data-i18n-ph="ui.dropRetryPh" placeholder="60">
+    </div>
+
     <div class="diag-test">
       <button id="diag-test-btn" class="btn-sec" data-i18n="ui.diagTest">Tester les sélecteurs (sur une page Twitch)</button>
       <p id="diag-result" class="diag-result"></p>

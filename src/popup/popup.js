@@ -797,6 +797,8 @@ async function load() {
 
   const histInput = document.getElementById('history-ttl');
   if (document.activeElement !== histInput) histInput.value = settings.historyTtlMin || '';
+  const retryInput = document.getElementById('drop-retry');
+  if (document.activeElement !== retryInput) retryInput.value = TAUtil.dropRetryMin(settings);
 
   // Derniere erreur : datee, et plus affichee au bout de 24 h (elle restait la pour toujours).
   const showErr = lastError && lastError.ts && now - lastError.ts < ERROR_SHOW_MS;
@@ -914,6 +916,14 @@ asInput.addEventListener('change', (e) => {
 document.getElementById('history-ttl').addEventListener('change', (e) => {
   const n = parseInt(e.target.value, 10);
   update('historyTtlMin', Number.isFinite(n) && n > 0 ? n : 0);
+});
+
+// Delai avant de reessayer un drop en erreur : 1 a 1440 min ; vide ou invalide -> 60 (defaut).
+document.getElementById('drop-retry').addEventListener('change', (e) => {
+  const n = parseInt(e.target.value, 10);
+  const v = Number.isFinite(n) ? Math.min(Math.max(n, 1), TAUtil.DROP_RETRY_MAX_MIN) : TAUtil.DROP_RETRY_DEFAULT_MIN;
+  e.target.value = v;
+  update('dropRetryMin', v);
 });
 
 // Choix de la langue : clic sur un drapeau -> enregistre settings.lang et recharge.

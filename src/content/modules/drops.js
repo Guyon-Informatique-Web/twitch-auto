@@ -18,28 +18,91 @@ TA.modules.drops = (function () {
   // re-tentative qui enchaine le drop suivant arrive apres le verdict.
   const VERIFY_STEP = 500;
   const VERIFY_MAX = 4000;
-  const REFUSED_TTL = 30 * 60 * 1000;          // drop refuse : nouvel essai au plus toutes les 30 min
-  const REFUSED_STORE = 'ta-drops-refused';    // sessionStorage : survit au rechargement de l'onglet
+  // Drop en erreur (refuse par Twitch ou echec) : jamais compte, et plus clique avant le delai
+  // du reglage dropRetryMin (60 min par defaut). Memoire dans chrome.storage.local, partagee par
+  // tous les onglets Twitch : un onglet inventaire rouvert ou le bandeau d'un stream ne
+  // reessaient pas plus tot (en 1.13.2 elle etait par onglet, en sessionStorage).
+  const REFUSED_STORE = 'dropsRefused';
+  const REFUSED_KEEP = 24 * 60 * 60 * 1000;     // entrees oubliees apres un jour (le delai max)
   let lastClick = 0;
   let recent = [];
   let verifyTimer = null;
   let pending = null;                           // clic en attente de verification
-  const refused = loadRefused();                // { cle du drop: { at } }
+  let refused = {};                             // { cle du drop: { at } }
+  let loading = null;                           // lecture de la memoire en cours au demarrage
+  let startGen = 0;                             // un stop() pendant la lecture annule le start()
 
+  function retryMs() { return TAUtil.dropRetryMin(TA.settings) * 60 * 1000; }
+  function cleanRefused(map, now) {
+    const out = {};
+    if (!map || typeof map !== 'object') return out;
+    Object.keys(map).forEach((k) => {
+      const at = map[k] && map[k].at;
+      if (typeof at === 'number' && at <= now && now - at < REFUSED_KEEP) out[k] = { at };
+    });
+    return out;
+  }
+  // Fusionne avec ce que les autres onglets ont ecrit : la date la plus recente l'emporte.
+  function mergeRefused(map) {
+    const other = cleanRefused(map, Date.now());
+    Object.keys(other).forEach((k) => { if (!refused[k] || refused[k].at < other[k].at) refused[k] = other[k]; });
+  }
+  function storage() {
+    try { return (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) || null; } catch (e) { return null; }
+  }
   function loadRefused() {
-    try { return JSON.parse(sessionStorage.getItem(REFUSED_STORE) || '{}') || {}; } catch (e) { return {}; }
+    // Memoire par onglet de la 1.13.2 (sessionStorage) : reprise une fois, puis effacee.
+    try {
+      const legacy = sessionStorage.getItem('ta-drops-refused');
+      if (legacy) { mergeRefused(JSON.parse(legacy)); sessionStorage.removeItem('ta-drops-refused'); saveRefused(); }
+    } catch (e) { /* pas de sessionStorage, contenu illisible */ }
+    const st = storage();
+    if (!st) return Promise.resolve();
+    try {
+      return Promise.resolve(st.get(REFUSED_STORE)).then((d) => mergeRefused(d && d[REFUSED_STORE]), () => {});
+    } catch (e) { return Promise.resolve(); }   // contexte d'extension invalide (MAJ en cours)
   }
   function saveRefused() {
-    try { sessionStorage.setItem(REFUSED_STORE, JSON.stringify(refused)); } catch (e) { /* quota, pas de sessionStorage */ }
+    const st = storage();
+    if (!st) return;
+    try {
+      // Relit avant d'ecrire : un autre onglet a pu noter un autre drop entre-temps.
+      Promise.resolve(st.get(REFUSED_STORE)).then((d) => {
+        mergeRefused(d && d[REFUSED_STORE]);
+        refused = cleanRefused(refused, Date.now());
+        return st.set({ [REFUSED_STORE]: refused });
+      }).catch(() => {});
+    } catch (e) { /* contexte d'extension invalide */ }
   }
-  // Cle d'un drop : campagne (ou jeu) + nom. Vide si on ne lit ni l'un ni l'autre.
-  function refusalKey(name, meta) {
-    const where = (meta && (meta.campaign || meta.game)) || '';
-    return name || where ? `${where}|${name}` : '';
+  // Cles d'un drop : campagne + nom ET jeu + nom. Le bandeau d'un stream ne lit que le jeu,
+  // l'inventaire lit les deux : noter et chercher les deux cles fait valoir un refus vu sur
+  // l'inventaire pour le bandeau du meme drop (et inversement). Vide si rien n'est lisible.
+  function refusalKeys(name, meta) {
+    const keys = [];
+    const add = (where) => { const k = name || where ? `${where}|${name}` : ''; if (k && !keys.includes(k)) keys.push(k); };
+    if (meta && meta.campaign) add(meta.campaign);
+    if (meta && meta.game) add(meta.game);
+    if (!keys.length) add('');
+    return keys;
   }
-  function isRefused(key, now) {
-    const r = key && refused[key];
-    return !!r && now - r.at < REFUSED_TTL;
+  function isRefused(keys, now) {
+    const ttl = retryMs();
+    return keys.some((k) => refused[k] && now - refused[k].at < ttl);
+  }
+  // Un autre onglet a note (ou la remise a zero a efface) un drop en erreur : prise en compte
+  // tout de suite, sans attendre le prochain demarrage du module.
+  function onStorageChanged(changes, area) {
+    if (area !== 'local' || !changes[REFUSED_STORE]) return;
+    const nv = changes[REFUSED_STORE].newValue;
+    if (nv === undefined) refused = {};
+    else mergeRefused(nv);
+  }
+  function listen(on) {
+    try {
+      const ev = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged;
+      if (!ev) return;
+      if (on) ev.addListener(onStorageChanged); else ev.removeListener(onStorageChanged);
+    } catch (e) { /* contexte d'extension invalide */ }
   }
   function pageText() {
     try { const b = document.body; return b ? (b.innerText || b.textContent || '') : ''; } catch (e) { return ''; }
@@ -137,9 +200,9 @@ TA.modules.drops = (function () {
         return;
       }
 
-      if (pending) return;                              // clic precedent pas encore verifie
+      if (pending || loading) return;                   // clic pas encore verifie, memoire pas lue
 
-      // Un drop refuse par Twitch (compte de jeu a lier) n'est plus clique avant REFUSED_TTL,
+      // Un drop en erreur n'est plus clique avant le delai du reglage (60 min par defaut),
       // meme apres un rechargement de l'inventaire qui recree son bouton.
       const anyRefused = Object.keys(refused).length > 0;
       let btn = null;
@@ -149,7 +212,8 @@ TA.modules.drops = (function () {
         if (claimedNodes.has(b) || !TA.dom.isClickable(b)) continue;
         const n = getDropName(b);
         const m = dropMeta(b);
-        if (anyRefused && isRefused(refusalKey(n, m), now)) { claimedNodes.add(b); continue; }
+        // Pas de claimedNodes ici : le meme bouton doit pouvoir etre clique une fois le delai passe.
+      if (anyRefused && isRefused(refusalKeys(n, m), now)) continue;
         btn = b; name = n; meta = m;
         break;
       }
@@ -162,7 +226,7 @@ TA.modules.drops = (function () {
       lastClick = now;
       recent.push(now);
       pending = { name, meta, before, at: now, onInventory: onInventory(), channel: TA.dom.currentChannel() };
-      verifyTimer = setTimeout(() => verify(false), VERIFY_STEP);
+      verifyTimer = setTimeout(verify, VERIFY_STEP);
 
       // Re-essaye apres le cooldown pour enchainer les drops suivants.
       // armTimer est remis a null AU DEBUT de la re-tentative : sinon il reste non-null
@@ -173,26 +237,31 @@ TA.modules.drops = (function () {
   }
 
   // Verdict d'un clic : refuse des qu'un message de refus est apparu depuis le clic, reclame
-  // au bout de VERIFY_MAX sans refus. final = verdict immediat (arret du module).
-  function verify(final) {
+  // au bout de VERIFY_MAX sans refus.
+  function verify() {
     if (verifyTimer) { clearTimeout(verifyTimer); verifyTimer = null; }
     const p = pending;
     if (!p) return;
     try {
       const reason = TAUtil.claimRefusal(p.before, TAUtil.claimRefusalCounts(pageText()));
-      if (!reason && !final && Date.now() - p.at < VERIFY_MAX) {
-        verifyTimer = setTimeout(() => verify(false), VERIFY_STEP);
+      if (!reason && Date.now() - p.at < VERIFY_MAX) {
+        verifyTimer = setTimeout(verify, VERIFY_STEP);
         return;
       }
       pending = null;
       if (reason) {
-        const key = refusalKey(p.name, p.meta);
-        const first = !!key && !refused[key];
-        if (key) { refused[key] = { at: Date.now() }; saveRefused(); }
-        TA.log.warn('drops', `drop refuse par Twitch (${reason === 'link' ? 'compte de jeu a lier' : 'erreur'}) : ${p.name || '?'}, nouvel essai dans 30 min`);
-        // Une notification par drop et par onglet : le refus se repete a chaque essai.
+        // Erreur : rien n'est compte (ni compteur, ni historique), et le drop attend le delai.
+        const keys = refusalKeys(p.name, p.meta);
+        const first = !keys.some((k) => refused[k]);
+        const at = Date.now();
+        keys.forEach((k) => { refused[k] = { at }; });
+        saveRefused();
+        const min = TAUtil.dropRetryMin(TA.settings);
+        TA.log.warn('drops', `drop refuse par Twitch (${reason === 'link' ? 'compte de jeu a lier' : 'erreur'}) : ${p.name || '?'}, non compte, nouvel essai dans ${min} min`);
+        // Une notification par drop (tous onglets confondus, tant que la memoire le garde) : le
+        // refus se repete a chaque essai.
         if (first && reason === 'link' && TA.dropRefused) {
-          TA.dropRefused({ name: p.name, game: p.meta.game, campaign: p.meta.campaign });
+          TA.dropRefused({ name: p.name, game: p.meta.game, campaign: p.meta.campaign, retryMin: min });
         }
         return;
       }
@@ -217,13 +286,25 @@ TA.modules.drops = (function () {
     id: 'drops',
     settingKey: 'drops',
     start() {
-      unsub = TA.dom.subscribe(tick);
+      // La memoire des drops en erreur est lue AVANT le premier clic : sans elle, chaque
+      // rechargement de l'inventaire recliquerait aussitot le drop refuse.
+      const gen = ++startGen;
+      listen(true);
+      loading = loadRefused().then(() => {
+        if (gen !== startGen) return;                   // stop() entre-temps
+        loading = null;
+        unsub = TA.dom.subscribe(tick);
+      }).catch((e) => { loading = null; TA.log.error('drops', e); });
       refreshTimer = setInterval(maybeRefresh, INVENTORY_REFRESH);
     },
     stop() {
+      startGen += 1;
+      loading = null;
+      listen(false);
       if (unsub) { unsub(); unsub = null; }
       if (armTimer) { clearTimeout(armTimer); armTimer = null; }
-      verify(true);                                     // un clic deja fait reste compte (ou refuse)
+      // Un clic deja fait garde sa verification jusqu'au verdict (4 s) : compte s'il passe,
+      // jamais compte si Twitch le refuse, meme si le module vient d'etre coupe.
       if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
     }
   };

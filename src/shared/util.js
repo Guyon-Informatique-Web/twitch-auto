@@ -92,7 +92,7 @@
   // link = compte de jeu a lier (rien ne passera tant que l'utilisateur ne l'a pas fait),
   // error = echec generique.
   const REFUSAL_LINK = /li(?:ez|er) (?:vos|votre|ton|tes) comptes? de jeu|link (?:your )?(?:game )?accounts?|connect (?:your )?game accounts?/g;
-  const REFUSAL_ERROR = /une erreur (?:est survenue|s.est produite)|an error (?:has )?occurred|something went wrong/g;
+  const REFUSAL_ERROR = /une erreur (?:est survenue|s.est produite)|an error (?:has )?occurred|something went wrong|impossible de (?:r[eé]cup[eé]rer|r[eé]clamer)|(?:unable|failed) to claim|could(?:n.t| not) claim/g;
   function claimRefusalCounts(text) {
     const t = String(text == null ? '' : text).toLowerCase();
     return { link: (t.match(REFUSAL_LINK) || []).length, error: (t.match(REFUSAL_ERROR) || []).length };
@@ -103,6 +103,16 @@
     if (after.link > before.link) return 'link';
     if (after.error > before.error) return 'error';
     return '';
+  }
+
+  // Delai avant de reessayer un drop en erreur (refuse par Twitch ou echec) : reglage
+  // dropRetryMin, en minutes, 60 par defaut. Hors bornes ou illisible -> 60.
+  const DROP_RETRY_DEFAULT_MIN = 60;
+  const DROP_RETRY_MAX_MIN = 1440;   // un jour : au-dela, un drop est souvent expire
+  function dropRetryMin(settings) {
+    const v = settings ? settings.dropRetryMin : undefined;
+    const n = typeof v === 'string' && /^\d+$/.test(v.trim()) ? Number(v) : v;
+    return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= DROP_RETRY_MAX_MIN ? n : DROP_RETRY_DEFAULT_MIN;
   }
 
   // Retire de l'historique les entrees plus vieilles que ttlMin minutes.
@@ -449,6 +459,11 @@
       const n = Math.floor(Number(ttl));
       if (n >= 0 && n <= TTL_MAX_MIN) out.historyTtlMin = n;
     }
+    const retry = input.dropRetryMin;
+    if ((typeof retry === 'number' && Number.isInteger(retry)) || (typeof retry === 'string' && /^\d+$/.test(retry))) {
+      const n = Number(retry);
+      if (n >= 1 && n <= DROP_RETRY_MAX_MIN) out.dropRetryMin = n;
+    }
     if (typeof input.autoSwitchUrl === 'string') {
       // Vide = "pas de chaine de repli" (choix explicite). Invalide = ignore : on ne remplace pas
       // une chaine deja reglee par rien.
@@ -516,7 +531,7 @@
 
   const api = {
     formatRelativeTime, formatRelativeFuture, formatCompact, compareVersions, shouldReload, makeThrottle,
-    cleanDropName, claimRefusalCounts, claimRefusal, pruneHistory, sortDropsByEta, tabState, isTabAlert,
+    cleanDropName, claimRefusalCounts, claimRefusal, dropRetryMin, DROP_RETRY_DEFAULT_MIN, DROP_RETRY_MAX_MIN, pruneHistory, sortDropsByEta, tabState, isTabAlert,
     groupDropsByGame, gameNameFromHref, gameSlugFromHref, participateUrl,
     dayKey, groupHistoryByDay, parseEndDate, campaignRemainingMin, nextFallback,
     dropKey, trackProgress, STUCK_MS,
